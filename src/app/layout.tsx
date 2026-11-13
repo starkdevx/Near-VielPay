@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'NearVeil — Gasless Invoicing & Umbra-Style Private Payroll on NEAR',
+  title: 'NearVeil — Simple Invoicing & Private Payroll',
   description:
-    'Real-World Money on NEAR Testnet: Gasless freelancer invoicing via NEP-366 Relayer, Cross-Chain 1Click API settlement, Umbra-style Private Payroll, and Bookkeeper CSV Exports.',
+    'Send invoices, get paid from any chain in USDC with zero gas fees, and run Umbra-style private payroll on NEAR Testnet.',
 };
 
 export default function RootLayout({
@@ -14,10 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-emerald-100 selection:text-emerald-900">
         {children}
       </body>
     </html>
   );
 }
-

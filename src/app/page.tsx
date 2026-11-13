@@ -16,10 +16,15 @@ import {
   Users,
   FileText,
   Sparkles,
-  Coins,
-  ArrowUpRight,
+  Copy,
+  Check,
   Terminal,
   AlertCircle,
+  X,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Wallet,
 } from 'lucide-react';
 import {
   InvoiceLineItem,
@@ -47,6 +52,7 @@ export default function NearVeilHomePage() {
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payroll' | 'accounting' | 'security'
   >('invoices');
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
 
   const [testnetInfo, setTestnetInfo] = useState<TestnetInfo | null>(null);
   const [invoices, setInvoices] = useState<NearVeilInvoice[]>([]);
@@ -56,7 +62,9 @@ export default function NearVeilHomePage() {
   const [stealthClaimedBalance, setStealthClaimedBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const [statusBanner, setStatusBanner] = useState<{
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [toast, setToast] = useState<{
     type: 'success' | 'error' | 'info';
     message: string;
     txUrl?: string | null;
@@ -73,48 +81,49 @@ export default function NearVeilHomePage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
     {
       id: 'item-1',
-      description: 'Cross-Chain Payment Architecture (1Click API)',
+      description: 'Product Design & Frontend Architecture',
       quantity: 15,
       unitPriceUsd: 110,
     },
     {
       id: 'item-2',
-      description: 'NEAR Meta-Transaction Relayer Integration',
+      description: 'Payment Flow Setup & QA',
       quantity: 1,
       unitPriceUsd: 550,
     },
   ]);
 
-  // Umbra Private Batch Payroll Form State
-  const [companyName, setCompanyName] = useState<string>('NearVeil Labs DAO');
+  // Private Batch Payroll Form State
+  const [companyName, setCompanyName] = useState<string>('NearVeil Labs');
   const [payPeriodLabel, setPayPeriodLabel] = useState<string>(
-    'Nov 2026 Cycle B'
+    'Nov 2026 · Bi-Weekly'
   );
   const [payrollOriginChain, setPayrollOriginChain] =
-    useState<string>('Solana');
-  const [payrollOriginAsset, setPayrollOriginAsset] = useState<string>('SOL');
+    useState<string>('NEAR Testnet');
+  const [payrollOriginAsset, setPayrollOriginAsset] =
+    useState<string>('USDC (NEAR Testnet)');
   const [payrollRecipients, setPayrollRecipients] = useState<
     PayrollRecipientInput[]
   >([
     {
       id: 'rec-1',
-      contractorName: 'Elena Vance (Core Rust Eng)',
-      roleOrDepartment: 'Protocol Engineering',
-      referenceCode: 'CONT-101',
+      contractorName: 'Elena Vance',
+      roleOrDepartment: 'Core Engineering',
+      referenceCode: 'EMP-101',
       amountUsdc: 3800,
     },
     {
       id: 'rec-2',
-      contractorName: 'Marcus Chen (Product Designer)',
-      roleOrDepartment: 'Design Systems',
-      referenceCode: 'CONT-102',
+      contractorName: 'Marcus Chen',
+      roleOrDepartment: 'Product Design',
+      referenceCode: 'EMP-102',
       amountUsdc: 2600,
     },
     {
       id: 'rec-3',
-      contractorName: 'Priya Nair (Security Researcher)',
-      roleOrDepartment: 'Cryptography & Audit',
-      referenceCode: 'CONT-103',
+      contractorName: 'Priya Nair',
+      roleOrDepartment: 'Security & Audit',
+      referenceCode: 'EMP-103',
       amountUsdc: 4100,
     },
   ]);
@@ -141,9 +150,9 @@ export default function NearVeilHomePage() {
         setViewingKeyInput(data.testnetInfo.defaultViewingKey);
       }
     } catch {
-      setStatusBanner({
+      setToast({
         type: 'error',
-        message: 'Unable to load NEAR Testnet state.',
+        message: 'Could not connect to NEAR Testnet backend.',
       });
     } finally {
       setLoading(false);
@@ -166,12 +175,29 @@ export default function NearVeilHomePage() {
     0
   );
 
+  // KPI calculations
+  const arInvoices = invoices.filter((i) => i.recordType === 'AR_INVOICE');
+  const paidInvoicesTotal = arInvoices
+    .filter((i) => i.status === 'PAID')
+    .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
+  const pendingInvoicesTotal = arInvoices
+    .filter((i) => i.status === 'PENDING')
+    .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
+  const payrollRecords = invoices.filter((i) => i.recordType === 'AP_PAYROLL');
+
+  const handleCopyInvoiceLink = (invoiceId: string) => {
+    const url = `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}`;
+    navigator.clipboard?.writeText(url);
+    setCopiedId(invoiceId);
+    setTimeout(() => setCopiedId(null), 1800);
+  };
+
   const handleAddLineItem = () => {
     setLineItems((prev) => [
       ...prev,
       {
         id: `item-${Date.now()}`,
-        description: 'Additional Milestone Deliverable',
+        description: 'Additional Deliverable',
         quantity: 1,
         unitPriceUsd: 250,
       },
@@ -186,7 +212,7 @@ export default function NearVeilHomePage() {
   const handleCreateGaslessInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusyKey('create_invoice');
-    setStatusBanner(null);
+    setToast(null);
     try {
       const res = await fetch('/api/invoices', {
         method: 'POST',
@@ -204,13 +230,14 @@ export default function NearVeilHomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
       await fetchDashboard();
-      setStatusBanner({
+      setShowCreateModal(false);
+      setToast({
         type: 'success',
-        message: `Gasless Invoice ${data.invoice.invoiceId} created on NEAR Testnet! Relayer (${testnetInfo?.relayerAccountId}) paid 100% of gas.`,
+        message: `Invoice ${data.invoice.invoiceId} ($${data.invoice.totalAmountUsdc.toFixed(2)}) created with $0.00 gas!`,
         txUrl: data.invoice.creationTxUrl,
       });
     } catch (err) {
-      setStatusBanner({
+      setToast({
         type: 'error',
         message: (err as Error).message,
       });
@@ -221,7 +248,7 @@ export default function NearVeilHomePage() {
 
   const handleQuickPayInvoice = async (inv: NearVeilInvoice) => {
     setBusyKey(`pay_${inv.invoiceId}`);
-    setStatusBanner(null);
+    setToast(null);
     try {
       const res = await fetch('/api/invoices', {
         method: 'POST',
@@ -236,13 +263,13 @@ export default function NearVeilHomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       await fetchDashboard();
-      setStatusBanner({
+      setToast({
         type: 'success',
-        message: `Invoice ${inv.invoiceId} settled (${inv.totalAmountUsdc.toFixed(2)} USDC) on NEAR Testnet via 1Click Solver!`,
+        message: `${inv.invoiceId} paid! $${inv.totalAmountUsdc.toFixed(2)} USDC settled on NEAR Testnet.`,
         txUrl: data.invoice.settlementTxUrl,
       });
     } catch (err) {
-      setStatusBanner({
+      setToast({
         type: 'error',
         message: (err as Error).message,
       });
@@ -253,7 +280,7 @@ export default function NearVeilHomePage() {
 
   const handleQuickStealthClaim = async (inv: NearVeilInvoice) => {
     setBusyKey(`claim_${inv.invoiceId}`);
-    setStatusBanner(null);
+    setToast(null);
     try {
       const res = await fetch('/api/invoices', {
         method: 'POST',
@@ -268,13 +295,13 @@ export default function NearVeilHomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Stealth claim failed');
       await fetchDashboard();
-      setStatusBanner({
+      setToast({
         type: 'success',
-        message: `Swept ${inv.totalAmountUsdc.toFixed(2)} USDC gaslessly to unlinked NEAR Stealth Account (${inv.stealthImplicitAccount.slice(0, 12)}...)!`,
+        message: `Claimed $${inv.totalAmountUsdc.toFixed(2)} USDC privately to your one-time wallet with $0.00 gas.`,
         txUrl: data.invoice.stealthClaimTxUrl,
       });
     } catch (err) {
-      setStatusBanner({
+      setToast({
         type: 'error',
         message: (err as Error).message,
       });
@@ -286,7 +313,7 @@ export default function NearVeilHomePage() {
   const handleRunPrivatePayroll = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusyKey('run_payroll');
-    setStatusBanner(null);
+    setToast(null);
     try {
       const res = await fetch('/api/invoices', {
         method: 'POST',
@@ -303,13 +330,13 @@ export default function NearVeilHomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payroll batch failed');
       await fetchDashboard();
-      setStatusBanner({
+      setToast({
         type: 'success',
-        message: `Umbra Private Payroll Batch ${data.batch.batchId} (${data.batch.recipientCount} recipients, $${data.batch.totalAmountUsdc.toFixed(2)} USDC) committed on NEAR Testnet with zero employee wallets exposed!`,
+        message: `Paid ${data.batch.recipientCount} team members ($${data.batch.totalAmountUsdc.toFixed(2)} USDC) privately in one transaction!`,
         txUrl: data.batch.fundingTxUrl,
       });
     } catch (err) {
-      setStatusBanner({
+      setToast({
         type: 'error',
         message: (err as Error).message,
       });
@@ -327,9 +354,9 @@ export default function NearVeilHomePage() {
         body: JSON.stringify({ action: 'mint_faucet_usdc' }),
       });
       await fetchDashboard();
-      setStatusBanner({
+      setToast({
         type: 'info',
-        message: 'Minted +10,000.00 Free Testnet USDC to your sandbox payer balance.',
+        message: 'Added +$10,000.00 free Testnet USDC to your demo balance.',
       });
     } finally {
       setBusyKey(null);
@@ -359,540 +386,326 @@ export default function NearVeilHomePage() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setRelayerTestLog(
-        `HTTP ${res.status}\n${JSON.stringify(data, null, 2)}`
-      );
+      setRelayerTestLog(`HTTP ${res.status}\n${JSON.stringify(data, null, 2)}`);
     } finally {
       setBusyKey(null);
     }
   };
 
+  const navItems = [
+    { id: 'invoices' as const, label: 'Invoices', icon: FileText },
+    { id: 'payroll' as const, label: 'Private Payroll', icon: Users },
+    { id: 'accounting' as const, label: 'Bookkeeper & CSV', icon: FileSpreadsheet },
+    { id: 'security' as const, label: 'Testnet & Security', icon: Terminal },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100">
-      {/* Top Header */}
-      <header className="border-b border-slate-800/90 bg-slate-950/80 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Shield className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg tracking-tight text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col lg:flex-row">
+      {/* Clean Left Sidebar (Desktop) / Top Header (Mobile) */}
+      <aside className="lg:w-68 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/80 flex flex-col justify-between shrink-0">
+        <div className="p-5">
+          {/* Brand */}
+          <div className="flex items-center justify-between lg:justify-start gap-3 mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="font-bold text-base tracking-tight text-slate-900 leading-none">
                   NearVeil
-                </span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300">
-                  NEAR Testnet Live
-                </span>
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" />
+                  NEAR Testnet
+                </div>
               </div>
-              <p className="text-xs text-slate-400">
-                Gasless Cross-Chain Invoicing &amp; Umbra-Style Private Payroll on NEAR
-              </p>
             </div>
           </div>
 
-          {/* Live Testnet Metrics & Actions */}
-          <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-2">
-              <span className="text-slate-400">Testnet Payer Faucet:</span>
-              <span className="font-bold text-white">
-                ${faucetBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
-              </span>
-              <button
-                type="button"
-                onClick={handleMintFaucet}
-                disabled={busyKey === 'faucet'}
-                className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-semibold transition cursor-pointer"
-              >
-                +10k Free
-              </button>
-            </div>
-
-            <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-emerald-500/30 flex items-center gap-2">
-              <Lock className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-slate-400">Swept Stealth Balance:</span>
-              <span className="font-bold text-emerald-400">
-                ${stealthClaimedBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
-              </span>
-            </div>
-
-            <a
-              href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(
-                viewingKeyInput || testnetInfo?.defaultViewingKey || ''
-              )}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition shadow-md shadow-emerald-500/10"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Export Accountant CSV
-            </a>
-          </div>
-        </div>
-
-        {/* Sub-bar showing live NEAR Testnet Vault & Relayer accounts */}
-        {testnetInfo && (
-          <div className="bg-slate-900/70 border-t border-slate-800/70 px-4 sm:px-6 lg:px-8 py-2 text-xs">
-            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-slate-400">
-              <div className="flex flex-wrap items-center gap-4">
-                <span>
-                  Vault Contract:{' '}
-                  <a
-                    href={`${testnetInfo.explorerBaseUrl}/address/${testnetInfo.contractAccountId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald-400 hover:underline font-mono"
-                  >
-                    {testnetInfo.contractAccountId}
-                  </a>
-                </span>
-                <span>
-                  Gasless Relayer:{' '}
-                  <a
-                    href={`${testnetInfo.explorerBaseUrl}/address/${testnetInfo.relayerAccountId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sky-400 hover:underline font-mono"
-                  >
-                    {testnetInfo.relayerAccountId}
-                  </a>
-                </span>
-                <span>
-                  Freelancer Gas Cost:{' '}
-                  <strong className="text-emerald-300">$0.00 (Sponsored)</strong>
-                </span>
-              </div>
-
-              {testnetInfo.deployTxUrl && (
-                <a
-                  href={testnetInfo.deployTxUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-slate-300 hover:text-emerald-400 font-mono"
+          {/* Navigation */}
+          <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition whitespace-nowrap cursor-pointer ${
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                 >
-                  Contract Deploy Tx: {testnetInfo.deployTxHash?.slice(0, 12)}...
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* Main Content Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Notification Banner */}
-        {statusBanner && (
-          <div
-            className={`mb-6 p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
-              statusBanner.type === 'success'
-                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
-                : statusBanner.type === 'error'
-                  ? 'bg-rose-950/60 border-rose-500/40 text-rose-200'
-                  : 'bg-sky-950/60 border-sky-500/40 text-sky-200'
-            }`}
-          >
-            <div className="flex items-center gap-2.5 text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{statusBanner.message}</span>
-            </div>
-            {statusBanner.txUrl && (
-              <a
-                href={statusBanner.txUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-bold underline hover:opacity-80"
-              >
-                View Live Transaction on NearBlocks Testnet
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 border-b border-slate-800 pb-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('invoices')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-              activeTab === 'invoices'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            1. Gasless Freelancer Invoicing (1Click API)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('payroll')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-              activeTab === 'payroll'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            2. Umbra-Style Private Batch Payroll
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('accounting')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-              activeTab === 'accounting'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            3. Bookkeeper Viewing Key &amp; CSV Audit
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('security')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
-              activeTab === 'security'
-                ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/20'
-                : 'bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800'
-            }`}
-          >
-            <Terminal className="w-4 h-4" />
-            4. Relayer Whitelist &amp; x402 Inspector
-          </button>
+                  <Icon
+                    className={`w-4 h-4 ${
+                      isActive ? 'text-emerald-600' : 'text-slate-400'
+                    }`}
+                  />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* TAB 1: GASLESS FREELANCER INVOICING */}
-        {activeTab === 'invoices' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left: Create Invoice Form */}
-            <div className="lg:col-span-5">
-              <form
-                onSubmit={handleCreateGaslessInvoice}
-                className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-xl space-y-4"
-              >
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div>
-                    <h2 className="text-lg font-bold text-white">
-                      Create Freelancer Invoice
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      Zero NEAR needed for gas · Settled in USDC via 1Click API
-                    </p>
+        {/* Bottom Testnet Balance & Faucet Box */}
+        <div className="hidden lg:block p-4 m-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-500 font-medium">Demo USDC Balance</span>
+            <button
+              type="button"
+              onClick={handleMintFaucet}
+              disabled={busyKey === 'faucet'}
+              className="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer"
+            >
+              + Add $10k
+            </button>
+          </div>
+          <div className="text-xl font-bold text-slate-900 tabular-nums">
+            ${faucetBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
+            <span className="text-slate-500">Private Claimed</span>
+            <span className="font-semibold text-emerald-600 tabular-nums">
+              ${stealthClaimedBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            Gas fees sponsored ($0.00)
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 min-w-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8">
+          {/* Toast Notification */}
+          {toast && (
+            <div
+              className={`mb-6 px-4 py-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-sm ${
+                toast.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : toast.type === 'error'
+                    ? 'bg-rose-50 border-rose-200 text-rose-900'
+                    : 'bg-sky-50 border-sky-200 text-sky-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 text-sm font-medium">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{toast.message}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {toast.txUrl && (
+                  <a
+                    href={toast.txUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold underline hover:opacity-80"
+                  >
+                    View Receipt
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setToast(null)}
+                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 1: INVOICES */}
+          {activeTab === 'invoices' && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                    Invoices
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Create an invoice and share the link. Clients pay in any token; you receive USDC with zero gas fees.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Invoice
+                  </button>
+                </div>
+              </div>
+
+              {/* 3 Clean Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+                  <div className="text-xs font-medium text-slate-500">
+                    Collected (USDC)
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-                    0 Gas Relayer
+                  <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+                    ${paidInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-emerald-600 font-medium mt-1">
+                    Settled 1:1 in USD
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+                  <div className="text-xs font-medium text-slate-500">
+                    Awaiting Payment
+                  </div>
+                  <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+                    ${pendingInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-xs text-amber-600 font-medium mt-1">
+                    {arInvoices.filter((i) => i.status === 'PENDING').length} open invoice(s)
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs">
+                  <div className="text-xs font-medium text-slate-500">
+                    Gas Fees You Paid
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-600 mt-1 tabular-nums">
+                    $0.00
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Sponsored by NearVeil Relayer
+                  </div>
+                </div>
+              </div>
+
+              {/* Clean Invoices List */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <h2 className="font-semibold text-sm text-slate-900">
+                    Recent Invoices ({arInvoices.length})
+                  </h2>
+                  <span className="text-xs text-slate-400">
+                    Click any invoice to preview the client payment page
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Client / Company Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
+                {loading ? (
+                  <div className="p-10 text-center text-sm text-slate-400">
+                    Loading invoices...
                   </div>
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      PO / Reference Code
-                    </label>
-                    <input
-                      type="text"
-                      value={clientReference}
-                      onChange={(e) => setClientReference(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-1">
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Due Date
-                    </label>
-                    <input
-                      type="date"
-                      value={dueDateUtc}
-                      onChange={(e) => setDueDateUtc(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="sm:col-span-1">
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Tax / VAT (%)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={50}
-                      step={0.5}
-                      value={taxRatePercent}
-                      onChange={(e) => setTaxRatePercent(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                  <div className="sm:col-span-1">
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Freelancer ID
-                    </label>
-                    <input
-                      type="text"
-                      value={freelancerAccount}
-                      onChange={(e) => setFreelancerAccount(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Line Items */}
-                <div className="space-y-2.5 pt-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Billable Line Items
-                    </label>
+                ) : arInvoices.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <p className="text-sm text-slate-500 mb-3">
+                      No invoices yet. Create your first gasless invoice in 10 seconds.
+                    </p>
                     <button
                       type="button"
-                      onClick={handleAddLineItem}
-                      className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer"
+                      onClick={() => setShowCreateModal(true)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Item
+                      + Create Invoice
                     </button>
                   </div>
-
-                  {lineItems.map((item, idx) => (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <input
-                          type="text"
-                          required
-                          value={item.description}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setLineItems((prev) =>
-                              prev.map((li, i) =>
-                                i === idx ? { ...li, description: val } : li
-                              )
-                            );
-                          }}
-                          placeholder="Service description"
-                          className="w-full px-2.5 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-white"
-                        />
-                        {lineItems.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLineItem(item.id)}
-                            className="text-slate-500 hover:text-rose-400 p-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-[11px] text-slate-400">
-                            Hours / Qty
-                          </span>
-                          <input
-                            type="number"
-                            min={1}
-                            required
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const val = Math.max(1, Number(e.target.value));
-                              setLineItems((prev) =>
-                                prev.map((li, i) =>
-                                  i === idx ? { ...li, quantity: val } : li
-                                )
-                              );
-                            }}
-                            className="w-full px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white mt-0.5"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-[11px] text-slate-400">
-                            Rate (USD)
-                          </span>
-                          <input
-                            type="number"
-                            min={1}
-                            step="any"
-                            required
-                            value={item.unitPriceUsd}
-                            onChange={(e) => {
-                              const val = Math.max(0.01, Number(e.target.value));
-                              setLineItems((prev) =>
-                                prev.map((li, i) =>
-                                  i === idx ? { ...li, unitPriceUsd: val } : li
-                                )
-                              );
-                            }}
-                            className="w-full px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white mt-0.5"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Summary Box */}
-                <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Total Billed to Client</span>
-                    <span className="font-bold text-emerald-400 text-sm">
-                      {invoiceTotal.toFixed(2)} USDC
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Umbra Privacy Mode</span>
-                    <span className="text-slate-200">
-                      One-Time Stealth Implicit Account + Viewing Key
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={busyKey === 'create_invoice'}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/15 transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {busyKey === 'create_invoice'
-                    ? 'Relaying Gasless Transaction on NEAR Testnet...'
-                    : `Create Invoice for ${invoiceTotal.toFixed(2)} USDC (0 Gas)`}
-                </button>
-              </form>
-            </div>
-
-            {/* Right: Live Invoices List & One-Click Testnet Actions */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-white">
-                    Active Invoices &amp; Payroll Records ({invoices.length})
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Click any invoice to open the dedicated Client 1Click Checkout Page or trigger instant Testnet settlement.
-                  </p>
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center text-sm text-slate-400">
-                  Loading invoices from NEAR Testnet...
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {invoices.map((inv) => (
-                    <div
-                      key={inv.invoiceId}
-                      className="rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 p-5 transition shadow-lg"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {arInvoices.map((inv) => (
+                      <div
+                        key={inv.invoiceId}
+                        className="p-5 hover:bg-slate-50/70 transition flex flex-wrap items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2.5">
                             <Link
                               href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                              className="text-base font-bold text-white hover:text-emerald-400 inline-flex items-center gap-1"
+                              className="font-semibold text-slate-900 hover:text-emerald-600 transition"
                             >
-                              {inv.invoiceId}
-                              <ArrowUpRight className="w-4 h-4" />
+                              {inv.clientName}
                             </Link>
-                            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                              {inv.recordType}
+                            <span className="text-xs font-mono text-slate-400">
+                              {inv.invoiceId}
                             </span>
                             {inv.status === 'PAID' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                PAID
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Paid
                               </span>
                             )}
                             {inv.status === 'PENDING' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                                <Clock className="w-3.5 h-3.5" />
-                                PENDING
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold">
+                                <Clock className="w-3 h-3" />
+                                Pending
                               </span>
                             )}
                             {inv.status === 'REFUNDED' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
-                                <RefreshCcw className="w-3.5 h-3.5" />
-                                REFUNDED
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold">
+                                <RefreshCcw className="w-3 h-3" />
+                                Refunded
                               </span>
                             )}
                           </div>
 
-                          <p className="text-sm text-slate-300 mt-1">
-                            Counterparty: <strong className="text-white">{inv.clientName}</strong> · Due:{' '}
-                            <span className="text-slate-200">{inv.dueDateUtc}</span>
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {inv.lineItems.map((l) => l.description).join(' + ')}
-                          </p>
+                          <div className="text-xs text-slate-500 flex flex-wrap items-center gap-3">
+                            <span>Due {inv.dueDateUtc}</span>
+                            <span>·</span>
+                            <span className="truncate max-w-md">
+                              {inv.lineItems.map((l) => l.description).join(', ')}
+                            </span>
+                            {inv.settlementTxUrl && (
+                              <>
+                                <span>·</span>
+                                <a
+                                  href={inv.settlementTxUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-emerald-600 hover:underline font-medium"
+                                >
+                                  Receipt
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="text-xl font-bold text-emerald-400">
-                            {inv.totalAmountUsdc.toFixed(2)} USDC
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono">
-                            Stealth: {inv.stealthImplicitAccount.slice(0, 10)}...
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Transaction Verification Links & Action Buttons */}
-                      <div className="mt-4 pt-3.5 border-t border-slate-800/90 flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div className="flex flex-wrap items-center gap-3">
-                          <a
-                            href={inv.creationTxUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-slate-400 hover:text-emerald-400 font-mono"
-                          >
-                            Creation Tx: {inv.creationTxHash.slice(0, 10)}...
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                          {inv.settlementTxUrl && inv.settlementTxHash && (
-                            <a
-                              href={inv.settlementTxUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-emerald-400 hover:underline font-mono font-medium"
-                            >
-                              Settlement Tx: {inv.settlementTxHash.slice(0, 10)}...
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                          {inv.stealthClaimTxUrl && inv.stealthClaimTxHash && (
-                            <a
-                              href={inv.stealthClaimTxUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-sky-400 hover:underline font-mono font-medium"
-                            >
-                              Stealth Sweep Tx: {inv.stealthClaimTxHash.slice(0, 10)}...
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </div>
+                          <div className="text-right mr-2">
+                            <div className="text-base font-bold text-slate-900 tabular-nums">
+                              ${inv.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[11px] text-slate-400">USDC</div>
+                          </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyInvoiceLink(inv.invoiceId)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition cursor-pointer"
+                          >
+                            {copiedId === inv.invoiceId ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                Copy Link
+                              </>
+                            )}
+                          </button>
+
                           <Link
                             href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition"
                           >
-                            Open Invoice Page
+                            Open
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                           </Link>
 
                           {inv.status === 'PENDING' && (
@@ -900,11 +713,11 @@ export default function NearVeilHomePage() {
                               type="button"
                               disabled={busyKey === `pay_${inv.invoiceId}`}
                               onClick={() => handleQuickPayInvoice(inv)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition cursor-pointer"
+                              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer"
                             >
                               {busyKey === `pay_${inv.invoiceId}`
-                                ? 'Settling...'
-                                : '1Click Pay (Testnet)'}
+                                ? 'Paying...'
+                                : 'Test Pay'}
                             </button>
                           )}
 
@@ -913,581 +726,747 @@ export default function NearVeilHomePage() {
                               type="button"
                               disabled={busyKey === `claim_${inv.invoiceId}`}
                               onClick={() => handleQuickStealthClaim(inv)}
-                              className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold transition cursor-pointer"
+                              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer"
                             >
+                              <Lock className="w-3 h-3" />
                               {busyKey === `claim_${inv.invoiceId}`
-                                ? 'Sweeping...'
-                                : 'Sweep to Stealth (0 Gas)'}
+                                ? 'Claiming...'
+                                : 'Claim Privately'}
                             </button>
+                          )}
+
+                          {inv.claimedToStealthWallet && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs font-medium">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Claimed
+                            </span>
                           )}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: UMBRA-STYLE PRIVATE BATCH PAYROLL */}
-        {activeTab === 'payroll' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-6">
-              <form
-                onSubmit={handleRunPrivatePayroll}
-                className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-xl space-y-4"
-              >
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Lock className="w-5 h-5 text-emerald-400" />
-                      Umbra-Style Private Batch Payroll
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Fund multiple salaries in one pooled transaction. Zero employee wallets or individual salaries are exposed publicly on NearBlocks.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Organization / Employer Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">
-                      Pay Period Label
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={payPeriodLabel}
-                      onChange={(e) => setPayPeriodLabel(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1">
-                    Treasury Funding Source (via 1Click API or Direct NEAR Testnet)
-                  </label>
-                  <select
-                    value={`${payrollOriginAsset}|${payrollOriginChain}`}
-                    onChange={(e) => {
-                      const [sym, ch] = e.target.value.split('|');
-                      setPayrollOriginAsset(sym);
-                      setPayrollOriginChain(ch);
-                    }}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-sm text-white"
-                  >
-                    {tokens.map((t) => (
-                      <option key={t.assetId} value={`${t.symbol}|${t.chain}`}>
-                        Fund Batch with {t.symbol} ({t.chain}) → Pooled NEAR USDC Vault
-                      </option>
                     ))}
-                  </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: PRIVATE PAYROLL */}
+          {activeTab === 'payroll' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  Private Payroll
+                </h1>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Pay your team in one click. Public blockchain observers only see one lump-sum deposit—individual salaries and wallets stay private.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Payroll Run Form */}
+                <form
+                  onSubmit={handleRunPrivatePayroll}
+                  className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-5"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                        Company Name
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={companyName}
+                        onChange={(e) => setCompanyName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                        Pay Period
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={payPeriodLabel}
+                        onChange={(e) => setPayPeriodLabel(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                      Funding Currency
+                    </label>
+                    <select
+                      value={`${payrollOriginAsset}|${payrollOriginChain}`}
+                      onChange={(e) => {
+                        const [sym, ch] = e.target.value.split('|');
+                        setPayrollOriginAsset(sym);
+                        setPayrollOriginChain(ch);
+                      }}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    >
+                      {tokens.map((t) => (
+                        <option key={t.assetId} value={`${t.symbol}|${t.chain}`}>
+                          {t.symbol} ({t.chain})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        Team Members ({payrollRecipients.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPayrollRecipients((prev) => [
+                            ...prev,
+                            {
+                              id: `rec-${Date.now()}`,
+                              contractorName: `Team Member #${prev.length + 1}`,
+                              roleOrDepartment: 'Engineering',
+                              referenceCode: `EMP-10${prev.length + 1}`,
+                              amountUsdc: 2500,
+                            },
+                          ])
+                        }
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add Person
+                      </button>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {payrollRecipients.map((rec, idx) => (
+                        <div
+                          key={rec.id}
+                          className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
+                        >
+                          <input
+                            type="text"
+                            value={rec.contractorName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPayrollRecipients((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, contractorName: val } : r
+                                )
+                              );
+                            }}
+                            placeholder="Full Name"
+                            className="sm:col-span-5 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-900"
+                          />
+                          <input
+                            type="text"
+                            value={rec.roleOrDepartment}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setPayrollRecipients((prev) =>
+                                prev.map((r, i) =>
+                                  i === idx ? { ...r, roleOrDepartment: val } : r
+                                )
+                              );
+                            }}
+                            placeholder="Role"
+                            className="sm:col-span-4 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-700"
+                          />
+                          <div className="sm:col-span-3 relative">
+                            <span className="absolute left-3 top-2 text-sm text-slate-400">
+                              $
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={rec.amountUsdc}
+                              onChange={(e) => {
+                                const val = Math.max(1, Number(e.target.value));
+                                setPayrollRecipients((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx ? { ...r, amountUsdc: val } : r
+                                  )
+                                );
+                              }}
+                              className="w-full pl-7 pr-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-semibold text-slate-900 tabular-nums"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <div className="text-xs text-slate-500">Total Payroll Run</div>
+                      <div className="text-2xl font-bold text-slate-900 tabular-nums">
+                        ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
+                        <span className="text-sm font-medium text-slate-500">USDC</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={busyKey === 'run_payroll'}
+                      className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition flex items-center gap-2 cursor-pointer"
+                    >
+                      <Lock className="w-4 h-4" />
+                      {busyKey === 'run_payroll'
+                        ? 'Processing Private Run...'
+                        : 'Pay Team Privately'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Right: Completed Payroll Runs & Employee Claim Cards */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+                    <h2 className="font-semibold text-sm text-slate-900">
+                      Recent Payroll Runs ({payrollBatches.length})
+                    </h2>
+
+                    {payrollBatches.length === 0 ? (
+                      <p className="text-xs text-slate-500 py-4">
+                        No payroll runs yet. Click &ldquo;Pay Team Privately&rdquo; to execute your first confidential payroll batch on NEAR Testnet.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {payrollBatches.map((batch) => (
+                          <div
+                            key={batch.batchId}
+                            className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm text-slate-900">
+                                {batch.payPeriodLabel}
+                              </span>
+                              <span className="font-bold text-sm text-emerald-600 tabular-nums">
+                                ${batch.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                              <span>{batch.recipientCount} team members shielded</span>
+                              <a
+                                href={batch.fundingTxUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-emerald-600 hover:underline font-medium"
+                              >
+                                On-Chain Receipt
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Individual Team Member Claims */}
+                  {payrollRecords.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+                      <h3 className="font-semibold text-sm text-slate-900">
+                        Employee Private Claims ({payrollRecords.length})
+                      </h3>
+                      <div className="space-y-2.5">
+                        {payrollRecords.map((slip) => (
+                          <div
+                            key={slip.invoiceId}
+                            className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <div className="font-medium text-sm text-slate-900">
+                                {slip.clientName}
+                              </div>
+                              <div className="text-xs text-slate-500 tabular-nums">
+                                ${slip.totalAmountUsdc.toFixed(2)} USDC
+                              </div>
+                            </div>
+
+                            {slip.claimedToStealthWallet ? (
+                              <a
+                                href={slip.stealthClaimTxUrl || '#'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-semibold"
+                              >
+                                Claimed
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={busyKey === `claim_${slip.invoiceId}`}
+                                onClick={() => handleQuickStealthClaim(slip)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer"
+                              >
+                                {busyKey === `claim_${slip.invoiceId}`
+                                  ? 'Claiming...'
+                                  : 'Claim (0 Gas)'}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: BOOKKEEPER & CSV */}
+          {activeTab === 'accounting' && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                    Bookkeeper &amp; Tax Exports
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Clean spreadsheets your accountant can import into QuickBooks or Xero without asking a single question.
+                  </p>
                 </div>
 
-                {/* Recipients List */}
-                <div className="space-y-2.5 pt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                      Confidential Payroll Roster ({payrollRecipients.length} Contractors)
-                    </span>
+                <a
+                  href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(
+                    viewingKeyInput || testnetInfo?.defaultViewingKey || ''
+                  )}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Download Accountant CSV
+                </a>
+              </div>
+
+              {/* Privacy vs Bookkeeper Toggle Bar */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-xs font-medium text-slate-500">
+                    Bookkeeper Viewing Key:
+                  </span>
+                  <input
+                    type="text"
+                    value={viewingKeyInput}
+                    onChange={(e) => setViewingKeyInput(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 w-64"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBookkeeperDecryptedMode(!bookkeeperDecryptedMode)
+                  }
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
+                    bookkeeperDecryptedMode
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : 'bg-slate-100 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  {bookkeeperDecryptedMode ? (
+                    <>
+                      <Eye className="w-4 h-4" />
+                      Accountant View (Decrypted)
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4" />
+                      Public Blockchain View (Encrypted)
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Clean Accounting Table */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200/80">
+                      <tr>
+                        <th className="py-3.5 px-4 font-semibold">ID</th>
+                        <th className="py-3.5 px-4 font-semibold">Category</th>
+                        <th className="py-3.5 px-4 font-semibold">Status</th>
+                        <th className="py-3.5 px-4 font-semibold">Client / Recipient</th>
+                        <th className="py-3.5 px-4 font-semibold text-right">Amount (USD)</th>
+                        <th className="py-3.5 px-4 font-semibold text-right">Gas Paid</th>
+                        <th className="py-3.5 px-4 font-semibold">GL Account</th>
+                        <th className="py-3.5 px-4 font-semibold">Receipt</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {invoices.map((rec) => (
+                        <tr key={rec.invoiceId} className="hover:bg-slate-50/70">
+                          <td className="py-3.5 px-4 font-mono font-semibold text-slate-900">
+                            <Link
+                              href={`/invoice/${encodeURIComponent(rec.invoiceId)}`}
+                              className="hover:text-emerald-600 underline"
+                            >
+                              {rec.invoiceId}
+                            </Link>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600">
+                            {rec.recordType === 'AR_INVOICE' ? 'Invoice Income' : 'Private Payroll'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2 py-0.5 rounded-full font-semibold ${
+                                rec.status === 'PAID'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : rec.status === 'REFUNDED'
+                                    ? 'bg-rose-50 text-rose-700'
+                                    : 'bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {rec.status}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {bookkeeperDecryptedMode ? (
+                              <span className="font-medium text-slate-900">
+                                {rec.clientName}
+                              </span>
+                            ) : (
+                              <span className="font-mono text-slate-400">
+                                [Encrypted: {rec.encryptedViewingNote.slice(0, 18)}...]
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right font-semibold text-slate-900 tabular-nums">
+                            ${rec.totalAmountUsdc.toFixed(2)}
+                          </td>
+                          <td className="py-3.5 px-4 text-right text-emerald-600 font-medium tabular-nums">
+                            $0.00
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500">
+                            {rec.recordType === 'AR_INVOICE'
+                              ? '1010 Cash / 4000 Revenue'
+                              : '6100 Payroll / 1010 Cash'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <a
+                              href={rec.settlementTxUrl || rec.creationTxUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-emerald-600 hover:underline font-medium"
+                            >
+                              NearBlocks
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: TESTNET & SECURITY (For Judges & Technical Verification) */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                  NEAR Testnet &amp; Relayer Security
+                </h1>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Technical verification tools for judges: inspect live Testnet contracts, test our strict Relayer allowlist, and view the PingPay x402 endpoint.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+                  <h2 className="font-semibold text-base text-slate-900 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-emerald-600" />
+                    Gasless Meta-Transaction Relayer Guard
+                  </h2>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Our relayer sponsors gas <strong>only</strong> for whitelisted calls to our own NearVeil contract. Any attempt to call another contract is rejected with HTTP 403.
+                  </p>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono space-y-1.5">
+                    <div>
+                      <span className="text-slate-400">Vault Contract: </span>
+                      <a
+                        href={`${testnetInfo?.explorerBaseUrl}/address/${testnetInfo?.contractAccountId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-600 hover:underline"
+                      >
+                        {testnetInfo?.contractAccountId}
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Relayer Account: </span>
+                      <a
+                        href={`${testnetInfo?.explorerBaseUrl}/address/${testnetInfo?.relayerAccountId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-600 hover:underline"
+                      >
+                        {testnetInfo?.relayerAccountId}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        setPayrollRecipients((prev) => [
-                          ...prev,
-                          {
-                            id: `rec-${Date.now()}`,
-                            contractorName: `Contractor #${prev.length + 1}`,
-                            roleOrDepartment: 'Engineering',
-                            referenceCode: `CONT-10${prev.length + 1}`,
-                            amountUsdc: 2000,
-                          },
-                        ])
-                      }
-                      className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold cursor-pointer"
+                      disabled={busyKey !== null}
+                      onClick={() => handleTestRelayerPolicy('authorized')}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition cursor-pointer"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add Recipient
+                      Test Allowed Contract (200 OK)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyKey !== null}
+                      onClick={() => handleTestRelayerPolicy('unauthorized')}
+                      className="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-semibold text-xs transition cursor-pointer"
+                    >
+                      Test Foreign Contract (403)
                     </button>
                   </div>
 
-                  {payrollRecipients.map((rec, idx) => (
-                    <div
-                      key={rec.id}
-                      className="p-3 rounded-xl bg-slate-950 border border-slate-800 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
-                    >
-                      <div className="sm:col-span-5">
-                        <span className="text-[10px] text-slate-400 block">
-                          Name (Encrypted On-Chain)
-                        </span>
-                        <input
-                          type="text"
-                          value={rec.contractorName}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPayrollRecipients((prev) =>
-                              prev.map((r, i) =>
-                                i === idx ? { ...r, contractorName: val } : r
-                              )
-                            );
-                          }}
-                          className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white"
-                        />
-                      </div>
-                      <div className="sm:col-span-4">
-                        <span className="text-[10px] text-slate-400 block">
-                          Department / Role
-                        </span>
-                        <input
-                          type="text"
-                          value={rec.roleOrDepartment}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPayrollRecipients((prev) =>
-                              prev.map((r, i) =>
-                                i === idx ? { ...r, roleOrDepartment: val } : r
-                              )
-                            );
-                          }}
-                          className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white"
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <span className="text-[10px] text-slate-400 block">
-                          Salary (USDC)
-                        </span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={rec.amountUsdc}
-                          onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value));
-                            setPayrollRecipients((prev) =>
-                              prev.map((r, i) =>
-                                i === idx ? { ...r, amountUsdc: val } : r
-                              )
-                            );
-                          }}
-                          className="w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400"
-                        />
-                      </div>
-                    </div>
-                  ))}
+                  {relayerTestLog && (
+                    <pre className="p-3.5 rounded-xl bg-slate-900 text-emerald-300 text-xs font-mono overflow-x-auto">
+                      {relayerTestLog}
+                    </pre>
+                  )}
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-950 border border-emerald-500/30 space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Pooled Batch Deposit Total:</span>
-                    <span className="text-base font-bold text-emerald-400">
-                      ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
-                    </span>
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs space-y-4">
+                  <h2 className="font-semibold text-base text-slate-900 flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-indigo-600" />
+                    PingPay x402 Agent Paywall
+                  </h2>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Every invoice exposes an <code className="font-mono text-indigo-600">HTTP 402</code> endpoint so AI agents can pay in USDC on Base via PingPay and settle on NEAR.
+                  </p>
+                  {invoices[0] && (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                      <div className="text-slate-500">
+                        Live x402 Endpoint for {invoices[0].invoiceId}:
+                      </div>
+                      <a
+                        href={`/api/x402/${encodeURIComponent(invoices[0].invoiceId)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-indigo-600 hover:underline font-mono font-semibold"
+                      >
+                        GET /api/x402/{invoices[0].invoiceId}
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Clean Modal for Creating a New Invoice */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+              <div>
+                <h2 className="font-bold text-lg text-slate-900">New Invoice</h2>
+                <p className="text-xs text-slate-500">
+                  Sent with $0.00 gas fees · Paid in USDC
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateGaslessInvoice} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Client Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    PO / Reference #
+                  </label>
+                  <input
+                    type="text"
+                    value={clientReference}
+                    onChange={(e) => setClientReference(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dueDateUtc}
+                    onChange={(e) => setDueDateUtc(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Tax (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={taxRatePercent}
+                    onChange={(e) => setTaxRatePercent(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Your Name / ID
+                  </label>
+                  <input
+                    type="text"
+                    value={freelancerAccount}
+                    onChange={(e) => setFreelancerAccount(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div className="space-y-2.5 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">
+                    Line Items
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleAddLineItem}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Line
+                  </button>
+                </div>
+
+                {lineItems.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={item.description}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLineItems((prev) =>
+                            prev.map((li, i) =>
+                              i === idx ? { ...li, description: val } : li
+                            )
+                          );
+                        }}
+                        placeholder="Item description"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900"
+                      />
+                      {lineItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLineItem(item.id)}
+                          className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setLineItems((prev) =>
+                            prev.map((li, i) =>
+                              i === idx ? { ...li, quantity: val } : li
+                            )
+                          );
+                        }}
+                        placeholder="Qty"
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        step="any"
+                        required
+                        value={item.unitPriceUsd}
+                        onChange={(e) => {
+                          const val = Math.max(0.01, Number(e.target.value));
+                          setLineItems((prev) =>
+                            prev.map((li, i) =>
+                              i === idx ? { ...li, unitPriceUsd: val } : li
+                            )
+                          );
+                        }}
+                        placeholder="Price ($)"
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900"
+                      />
+                    </div>
                   </div>
-                  <div className="text-slate-400">
-                    On-Chain Footprint: Only <strong className="text-slate-200">{payrollRecipients.length} SHA-256 Commitments + Ephemeral PubKeys</strong> are logged to <code className="text-emerald-300">{testnetInfo?.contractAccountId}</code>.
+                ))}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-slate-500">Invoice Total</div>
+                  <div className="text-xl font-bold text-slate-900 tabular-nums">
+                    ${invoiceTotal.toFixed(2)} USDC
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={busyKey === 'run_payroll'}
-                  className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-bold text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={busyKey === 'create_invoice'}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition inline-flex items-center gap-2 cursor-pointer"
                 >
-                  <Coins className="w-4 h-4" />
-                  {busyKey === 'run_payroll'
-                    ? 'Committing Shielded Batch Payroll on NEAR Testnet...'
-                    : `Execute Private Payroll Batch ($${payrollTotalUsdc.toLocaleString()} USDC)`}
+                  <Sparkles className="w-4 h-4" />
+                  {busyKey === 'create_invoice'
+                    ? 'Creating...'
+                    : 'Create Invoice'}
                 </button>
-              </form>
-            </div>
-
-            {/* Right: Executed Private Payroll Batches & Individual Stealth Slips */}
-            <div className="lg:col-span-6 space-y-4">
-              <h2 className="text-lg font-bold text-white">
-                Shielded Payroll Batches &amp; Unlinkable Employee Claims
-              </h2>
-              <p className="text-xs text-slate-400">
-                Each employee receives an individual claim slip backed by a one-time commitment hash. Claiming routes through the Gasless Relayer to a fresh 64-character hex NEAR Stealth Implicit Account.
-              </p>
-
-              {payrollBatches.length === 0 ? (
-                <div className="p-8 rounded-2xl bg-slate-900/60 border border-slate-800 text-center text-sm text-slate-400">
-                  No payroll batches executed yet. Click &ldquo;Execute Private Payroll Batch&rdquo; on the left to test!
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {payrollBatches.map((batch) => (
-                    <div
-                      key={batch.batchId}
-                      className="rounded-2xl bg-slate-900/90 border border-emerald-500/30 p-5 space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                            {batch.batchId}
-                          </span>
-                          <h3 className="text-base font-bold text-white mt-1">
-                            {batch.companyName} — {batch.payPeriodLabel}
-                          </h3>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-emerald-400">
-                            ${batch.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
-                          </div>
-                          <div className="text-xs text-slate-400">
-                            {batch.recipientCount} Shielded Commitments
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                        <span className="text-slate-400">
-                          Funded via: {batch.fundingOriginAsset} ({batch.fundingOriginChain})
-                        </span>
-                        <a
-                          href={batch.fundingTxUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-emerald-400 hover:underline font-mono"
-                        >
-                          Batch Tx: {batch.fundingTxHash.slice(0, 14)}...
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Individual Payroll Slips ready for Gasless Stealth Sweep */}
-              <div className="space-y-3 pt-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Employee Stealth Claim Slips ({invoices.filter((i) => i.recordType === 'AP_PAYROLL').length})
-                </h3>
-                {invoices
-                  .filter((i) => i.recordType === 'AP_PAYROLL')
-                  .map((slip) => (
-                    <div
-                      key={slip.invoiceId}
-                      className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs"
-                    >
-                      <div>
-                        <div className="font-bold text-white text-sm">
-                          {slip.invoiceId} · {slip.clientName}
-                        </div>
-                        <div className="text-slate-400 font-mono mt-0.5">
-                          Commitment: sha256:{slip.stealthCommitmentHash.slice(0, 16)}... · Stealth:{' '}
-                          {slip.stealthImplicitAccount.slice(0, 10)}...
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-emerald-400 text-sm">
-                          ${slip.totalAmountUsdc.toFixed(2)} USDC
-                        </span>
-                        {slip.claimedToStealthWallet ? (
-                          <a
-                            href={slip.stealthClaimTxUrl || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-semibold"
-                          >
-                            Swept (Tx)
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busyKey === `claim_${slip.invoiceId}`}
-                            onClick={() => handleQuickStealthClaim(slip)}
-                            className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold cursor-pointer"
-                          >
-                            {busyKey === `claim_${slip.invoiceId}`
-                              ? 'Sweeping...'
-                              : 'Claim to Stealth (0 Gas)'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
               </div>
-            </div>
+            </form>
           </div>
-        )}
-
-        {/* TAB 3: BOOKKEEPER VIEWING KEY & ZERO-QUESTION CSV EXPORT */}
-        {activeTab === 'accounting' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-xl">
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800">
-                <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                    Bookkeeper Viewing Key &amp; General Ledger Export
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Toggle between what the public sees on-chain (encrypted ciphertext &amp; commitment hashes) vs. what your accountant sees with the read-only Viewing Key.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setBookkeeperDecryptedMode(!bookkeeperDecryptedMode)
-                    }
-                    className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                      bookkeeperDecryptedMode
-                        ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                        : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                    }`}
-                  >
-                    {bookkeeperDecryptedMode ? (
-                      <>
-                        <Unlock className="w-4 h-4" />
-                        Bookkeeper Viewing Key: ACTIVE (Decrypted)
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4" />
-                        Public Explorer View: ENCRYPTED (Privacy Mode)
-                      </>
-                    )}
-                  </button>
-
-                  <a
-                    href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(
-                      viewingKeyInput || testnetInfo?.defaultViewingKey || ''
-                    )}`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-lg transition"
-                  >
-                    <FileSpreadsheet className="w-4 h-4" />
-                    Download Zero-Question Accountant CSV
-                  </a>
-                </div>
-              </div>
-
-              {/* Viewing Key Input Bar */}
-              <div className="py-4 flex flex-wrap items-center gap-4 text-xs">
-                <span className="text-slate-400 font-medium">
-                  Active Read-Only Bookkeeper Viewing Key:
-                </span>
-                <input
-                  type="text"
-                  value={viewingKeyInput}
-                  onChange={(e) => setViewingKeyInput(e.target.value)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 font-mono text-emerald-300 w-72"
-                />
-                <span className="text-slate-400">
-                  (Grants read-only AES-256-GCM decryption for tax/audit reconciliation; cannot spend funds)
-                </span>
-              </div>
-
-              {/* Ledger Table */}
-              <div className="overflow-x-auto rounded-xl border border-slate-800 mt-2">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-950 text-slate-400 uppercase">
-                    <tr>
-                      <th className="py-3 px-3">Record ID</th>
-                      <th className="py-3 px-3">Type</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3">Counterparty (Viewing Key)</th>
-                      <th className="py-3 px-3">Line Items / Memo</th>
-                      <th className="py-3 px-3 text-right">Net USDC</th>
-                      <th className="py-3 px-3 text-right">User Gas Paid</th>
-                      <th className="py-3 px-3">GL Debit / Credit</th>
-                      <th className="py-3 px-3">On-Chain Proof</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {invoices.map((rec) => (
-                      <tr key={rec.invoiceId} className="hover:bg-slate-800/30">
-                        <td className="py-3 px-3 font-mono font-bold text-white">
-                          <Link
-                            href={`/invoice/${encodeURIComponent(rec.invoiceId)}`}
-                            className="hover:text-emerald-400 underline"
-                          >
-                            {rec.invoiceId}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-3 font-mono text-slate-300">
-                          {rec.recordType}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded font-bold ${
-                              rec.status === 'PAID'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : rec.status === 'REFUNDED'
-                                  ? 'bg-rose-500/20 text-rose-300'
-                                  : 'bg-amber-500/20 text-amber-300'
-                            }`}
-                          >
-                            {rec.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          {bookkeeperDecryptedMode ? (
-                            <span className="text-white font-medium">
-                              {rec.clientName} ({rec.clientReference})
-                            </span>
-                          ) : (
-                            <span className="font-mono text-amber-300/80">
-                              [ENCRYPTED: {rec.encryptedViewingNote.slice(0, 22)}...]
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 max-w-xs truncate">
-                          {bookkeeperDecryptedMode ? (
-                            <span className="text-slate-300">
-                              {rec.lineItems.map((l) => l.description).join('; ')}
-                            </span>
-                          ) : (
-                            <span className="font-mono text-slate-500">
-                              Commitment: sha256:{rec.stealthCommitmentHash.slice(0, 16)}...
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-right font-bold text-emerald-400">
-                          ${rec.totalAmountUsdc.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-right text-emerald-300 font-mono">
-                          $0.00
-                        </td>
-                        <td className="py-3 px-3 text-slate-300">
-                          {rec.recordType === 'AR_INVOICE'
-                            ? '1010 Cash / 4000 Rev'
-                            : '6100 Payroll / 1010 Cash'}
-                        </td>
-                        <td className="py-3 px-3">
-                          <a
-                            href={rec.settlementTxUrl || rec.creationTxUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-emerald-400 hover:underline font-mono"
-                          >
-                            NearBlocks
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: RELAYER WHITELIST & X402 INSPECTOR */}
-        {activeTab === 'security' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-6 space-y-6">
-              <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-xl space-y-4">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-emerald-400" />
-                  NEP-366 Gasless Meta-Transaction Relayer Verification
-                </h2>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Track Requirement:{' '}
-                  <em className="text-emerald-300">
-                    &ldquo;Gasless for the freelancer: route their transactions through a meta transaction relayer that only pays for calls to our own contract.&rdquo;
-                  </em>
-                </p>
-
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-2 font-mono">
-                  <div>
-                    <span className="text-slate-400">Authorized Contract: </span>
-                    <span className="text-emerald-400">
-                      {testnetInfo?.contractAccountId}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Relayer Signer: </span>
-                    <span className="text-sky-400">
-                      {testnetInfo?.relayerAccountId}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Allowed Methods: </span>
-                    <span className="text-slate-200">
-                      {testnetInfo?.allowedRelayerMethods.join(', ')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    disabled={busyKey !== null}
-                    onClick={() => handleTestRelayerPolicy('authorized')}
-                    className="py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition cursor-pointer"
-                  >
-                    Test Authorized Call (200 OK on Testnet)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyKey !== null}
-                    onClick={() => handleTestRelayerPolicy('unauthorized')}
-                    className="py-2.5 px-4 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs transition cursor-pointer"
-                  >
-                    Test Foreign Contract Call (403 Rejected)
-                  </button>
-                </div>
-
-                {relayerTestLog && (
-                  <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto">
-                    {relayerTestLog}
-                  </pre>
-                )}
-              </div>
-            </div>
-
-            <div className="lg:col-span-6 space-y-6">
-              <div className="rounded-2xl bg-slate-900/90 border border-slate-800 p-6 shadow-xl space-y-4">
-                <h2 className="text-lg font-bold text-white">
-                  PingPay x402 Agent Facilitator Endpoint
-                </h2>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Every invoice on NearVeil automatically exposes an{' '}
-                  <code className="text-indigo-300 font-mono">HTTP 402 Payment Required</code>{' '}
-                  endpoint so AI agents can pay invoices autonomously in USDC on Base via PingPay, settling directly to the freelancer&apos;s NEAR Stealth Account.
-                </p>
-                {invoices[0] && (
-                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-2">
-                    <div className="text-slate-400">
-                      Live x402 Paywall Route for {invoices[0].invoiceId}:
-                    </div>
-                    <a
-                      href={`/api/x402/${encodeURIComponent(invoices[0].invoiceId)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-indigo-400 hover:underline font-mono font-semibold"
-                    >
-                      GET /api/x402/{invoices[0].invoiceId}
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+        </div>
+      )}
     </div>
   );
 }
-

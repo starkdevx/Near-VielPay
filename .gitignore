@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+.nearveil-testnet.json
+.nearveil-ledger.json
+.env
+.env.*
+target/
+

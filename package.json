@@ -1,0 +1,30 @@
+{
+  "name": "nearveil-payroll",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NearVeil: Gasless Cross-Chain Freelancer Invoicing & Umbra-Style Private Payroll on NEAR Testnet",
+  "scripts": {
+    "dev": "next dev -H 127.0.0.1 -p 3000",
+    "build": "next build",
+    "start": "next start -H 127.0.0.1 -p 3000",
+    "setup:testnet": "node scripts/setup-testnet.mjs",
+    "test:e2e": "node scripts/verify-e2e-testnet.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.460.0",
+    "near-api-js": "^5.0.1",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2"
+  }
+}
+

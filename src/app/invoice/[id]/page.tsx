@@ -226,9 +226,9 @@ export default function InvoiceCheckoutPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">
+      <div className="min-h-screen flex items-center justify-center bg-[#0c0c0b] text-[#9c988c]">
         <div className="flex items-center gap-2.5 text-sm">
-          <div className="h-4 w-4 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin" />
+          <div className="h-4 w-4 rounded-full border-2 border-[#d4b06a] border-t-transparent animate-spin" />
           Loading invoice...
         </div>
       </div>
@@ -237,11 +237,11 @@ export default function InvoiceCheckoutPage() {
 
   if (!invoice) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-700 p-6">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c0b] text-[#f4f1ea] p-6">
         <p className="text-lg font-semibold mb-4">Invoice not found: {invoiceId}</p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d4b06a] text-[#0c0c0b] font-semibold text-sm hover:bg-[#e2c17d]"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to NearVeil
@@ -259,27 +259,27 @@ export default function InvoiceCheckoutPage() {
     : invoice.totalAmountUsdc.toFixed(2);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#0c0c0b] text-[#f4f1ea] py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#9c988c] hover:text-[#f4f1ea] transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
 
           <div className="flex items-center gap-2.5">
-            <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium">
+            <span className="text-xs px-3 py-1 rounded-full bg-[#17261d] border border-[#2a4534] text-[#77b28c] font-medium">
               NEAR Testnet
             </span>
             <a
               href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(defaultViewingKey)}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-medium transition shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#151513] hover:bg-[#1c1c19] border border-[#272622] text-[#d5d0c5] text-xs font-medium transition"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#d4b06a]" />
               Export CSV
             </a>
           </div>
@@ -288,15 +288,15 @@ export default function InvoiceCheckoutPage() {
         {/* Status Notification */}
         {bannerMessage && (
           <div
-            className={`mb-6 px-4 py-3.5 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-xs ${
+            className={`mb-6 px-4 py-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
               bannerMessage.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                ? 'bg-[#141c17] border-[#2c4435] text-[#cde5d6]'
                 : bannerMessage.type === 'error'
-                  ? 'bg-rose-50 border-rose-200 text-rose-900'
-                  : 'bg-sky-50 border-sky-200 text-sky-900'
+                  ? 'bg-[#1f1414] border-[#4b2725] text-[#f0c7c3]'
+                  : 'bg-[#1b1914] border-[#3b3423] text-[#eadbb8]'
             }`}
           >
-            <div className="flex items-center gap-2.5 text-sm font-medium">
+            <div className="flex items-center gap-2.5 text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{bannerMessage.text}</span>
             </div>
@@ -305,7 +305,7 @@ export default function InvoiceCheckoutPage() {
                 href={bannerMessage.txUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold underline hover:opacity-80"
+                className="inline-flex items-center gap-1 text-xs font-medium text-[#d4b06a] underline hover:opacity-80"
               >
                 View Receipt
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -315,75 +315,73 @@ export default function InvoiceCheckoutPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Stripe-Style Clean Paper Invoice */}
+          {/* Left Column: Engraved Obsidian Statement */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-sm">
-              {/* Invoice Header */}
-              <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-slate-100">
+            <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#22211d]">
                 <div>
-                  <div className="flex items-center gap-2 text-emerald-600 text-xs font-semibold mb-1">
+                  <div className="flex items-center gap-2 text-[#d4b06a] text-xs font-medium mb-1">
                     <Shield className="w-3.5 h-3.5" />
                     NearVeil Protected Invoice
                   </div>
-                  <h1 className="text-2xl font-bold text-slate-900">
+                  <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
                     {invoice.invoiceId}
                   </h1>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Billed to <strong className="text-slate-900">{invoice.clientName}</strong>
+                  <p className="text-sm text-[#9c988c] mt-1">
+                    Billed to <strong className="text-[#f4f1ea]">{invoice.clientName}</strong>
                     {invoice.clientReference ? ` · Ref: ${invoice.clientReference}` : ''}
                   </p>
                 </div>
 
                 <div className="text-right">
                   {invoice.status === 'PAID' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#17261d] border border-[#2a4534] text-[#77b28c] text-xs font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Paid
                     </span>
                   )}
                   {invoice.status === 'PENDING' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#261f14] border border-[#42341d] text-[#d9a05b] text-xs font-medium">
                       <Clock className="w-3.5 h-3.5" />
                       Pending
                     </span>
                   )}
                   {invoice.status === 'REFUNDED' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#281817] border border-[#492826] text-[#d97b73] text-xs font-medium">
                       <RefreshCcw className="w-3.5 h-3.5" />
                       Refunded
                     </span>
                   )}
-                  <div className="text-xs text-slate-500 mt-2">
+                  <div className="text-xs text-[#9c988c] mt-2">
                     Issued {invoice.issueDateUtc} · Due{' '}
-                    <span className="font-medium text-slate-900">{invoice.dueDateUtc}</span>
+                    <span className="font-medium text-[#f4f1ea]">{invoice.dueDateUtc}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Line Items */}
               <div className="py-6">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="text-xs text-slate-400 border-b border-slate-100">
+                    <tr className="text-xs text-[#736f65] border-b border-[#22211d]">
                       <th className="pb-3 font-medium">Description</th>
                       <th className="pb-3 font-medium text-right">Qty</th>
                       <th className="pb-3 font-medium text-right">Rate</th>
                       <th className="pb-3 font-medium text-right">Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[#22211d]">
                     {invoice.lineItems.map((item) => (
                       <tr key={item.id}>
-                        <td className="py-3.5 font-medium text-slate-900">
+                        <td className="py-3.5 font-medium text-[#f4f1ea]">
                           {item.description}
                         </td>
-                        <td className="py-3.5 text-right text-slate-600 tabular-nums">
+                        <td className="py-3.5 text-right text-[#9c988c] tabular-nums">
                           {item.quantity}
                         </td>
-                        <td className="py-3.5 text-right text-slate-600 tabular-nums">
+                        <td className="py-3.5 text-right text-[#9c988c] tabular-nums">
                           ${item.unitPriceUsd.toFixed(2)}
                         </td>
-                        <td className="py-3.5 text-right font-semibold text-slate-900 tabular-nums">
+                        <td className="py-3.5 text-right font-semibold text-[#f4f1ea] tabular-nums">
                           ${(item.quantity * item.unitPriceUsd).toFixed(2)}
                         </td>
                       </tr>
@@ -391,43 +389,41 @@ export default function InvoiceCheckoutPage() {
                   </tbody>
                 </table>
 
-                {/* Totals */}
-                <div className="mt-6 pt-4 border-t border-slate-100 space-y-2 text-sm">
-                  <div className="flex justify-between text-slate-500">
+                <div className="mt-6 pt-4 border-t border-[#22211d] space-y-2 text-sm">
+                  <div className="flex justify-between text-[#9c988c]">
                     <span>Subtotal</span>
-                    <span className="text-slate-900 tabular-nums">
+                    <span className="text-[#f4f1ea] tabular-nums">
                       ${invoice.subtotalUsd.toFixed(2)}
                     </span>
                   </div>
                   {invoice.taxAmountUsd > 0 && (
-                    <div className="flex justify-between text-slate-500">
+                    <div className="flex justify-between text-[#9c988c]">
                       <span>Tax ({invoice.taxRatePercent}%)</span>
-                      <span className="text-slate-900 tabular-nums">
+                      <span className="text-[#f4f1ea] tabular-nums">
                         ${invoice.taxAmountUsd.toFixed(2)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-slate-500">
+                  <div className="flex justify-between text-[#9c988c]">
                     <span>Network Gas Fee (Freelancer)</span>
-                    <span className="text-emerald-600 font-medium">$0.00 (Sponsored)</span>
+                    <span className="text-[#77b28c] font-medium">$0.00 (Sponsored)</span>
                   </div>
-                  <div className="pt-3 border-t border-slate-100 flex justify-between items-baseline">
-                    <span className="font-semibold text-slate-900">Amount Due</span>
-                    <span className="text-2xl font-bold text-slate-900 tabular-nums">
+                  <div className="pt-3 border-t border-[#22211d] flex justify-between items-baseline">
+                    <span className="font-medium text-[#f4f1ea]">Amount Due</span>
+                    <span className="text-2xl font-semibold text-[#d4b06a] tabular-nums tracking-[-0.02em]">
                       ${invoice.totalAmountUsdc.toFixed(2)}{' '}
-                      <span className="text-sm font-medium text-slate-500">USDC</span>
+                      <span className="text-sm font-normal text-[#9c988c]">USDC</span>
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Freelancer Private Claim Section (shown neatly once paid) */}
               {invoice.status === 'PAID' && (
-                <div className="pt-5 border-t border-slate-100">
+                <div className="pt-5 border-t border-[#22211d]">
                   {invoice.claimedToStealthWallet ? (
-                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2 text-emerald-900 font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="p-4 rounded-lg bg-[#141c17] border border-[#2c4435] flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2 text-[#cde5d6] font-medium">
+                        <CheckCircle2 className="w-4 h-4 text-[#77b28c] shrink-0" />
                         Claimed privately to one-time NEAR stealth wallet ($0 gas)
                       </div>
                       {invoice.stealthClaimTxUrl && (
@@ -435,7 +431,7 @@ export default function InvoiceCheckoutPage() {
                           href={invoice.stealthClaimTxUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-emerald-700 font-semibold underline"
+                          className="inline-flex items-center gap-1 text-[#d4b06a] font-medium underline"
                         >
                           View Sweep Receipt
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -443,9 +439,9 @@ export default function InvoiceCheckoutPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-slate-600">
-                        <strong className="text-slate-900 block">
+                    <div className="p-4 rounded-lg bg-[#11110f] border border-[#272622] flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs text-[#9c988c]">
+                        <strong className="text-[#f4f1ea] block">
                           Freelancer: Ready to Claim Privately
                         </strong>
                         Sweep funds to a fresh unlinked wallet with zero gas fees.
@@ -454,7 +450,7 @@ export default function InvoiceCheckoutPage() {
                         type="button"
                         disabled={busyAction === 'claim'}
                         onClick={handleClaimStealth}
-                        className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2 rounded-lg bg-[#f4f1ea] hover:bg-white text-[#0c0c0b] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Lock className="w-3.5 h-3.5" />
                         {busyAction === 'claim' ? 'Claiming...' : 'Claim Privately ($0 Gas)'}
@@ -464,12 +460,11 @@ export default function InvoiceCheckoutPage() {
                 </div>
               )}
 
-              {/* Collapsible On-Chain Verification Links */}
-              <div className="pt-4 mt-4 border-t border-slate-100">
+              <div className="pt-4 mt-4 border-t border-[#22211d]">
                 <button
                   type="button"
                   onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-                  className="flex items-center justify-between w-full text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer"
+                  className="flex items-center justify-between w-full text-xs font-medium text-[#9c988c] hover:text-[#f4f1ea] cursor-pointer"
                 >
                   <span>On-Chain Receipts &amp; Privacy Details</span>
                   {showTechnicalDetails ? (
@@ -480,14 +475,14 @@ export default function InvoiceCheckoutPage() {
                 </button>
 
                 {showTechnicalDetails && (
-                  <div className="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-2">
+                  <div className="mt-3 p-3.5 rounded-lg bg-[#11110f] border border-[#272622] text-xs space-y-2">
                     <div className="flex justify-between gap-2">
-                      <span className="text-slate-500">Created (Gasless Relayer):</span>
+                      <span className="text-[#736f65]">Created (Gasless Relayer):</span>
                       <a
                         href={invoice.creationTxUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-600 hover:underline font-mono inline-flex items-center gap-1"
+                        className="text-[#d4b06a] hover:underline font-mono inline-flex items-center gap-1"
                       >
                         {invoice.creationTxHash.slice(0, 14)}...
                         <ExternalLink className="w-3 h-3" />
@@ -495,12 +490,12 @@ export default function InvoiceCheckoutPage() {
                     </div>
                     {invoice.settlementTxUrl && invoice.settlementTxHash && (
                       <div className="flex justify-between gap-2">
-                        <span className="text-slate-500">Settlement Receipt:</span>
+                        <span className="text-[#736f65]">Settlement Receipt:</span>
                         <a
                           href={invoice.settlementTxUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-emerald-600 hover:underline font-mono inline-flex items-center gap-1"
+                          className="text-[#d4b06a] hover:underline font-mono inline-flex items-center gap-1"
                         >
                           {invoice.settlementTxHash.slice(0, 14)}...
                           <ExternalLink className="w-3 h-3" />
@@ -509,12 +504,12 @@ export default function InvoiceCheckoutPage() {
                     )}
                     {invoice.refundTxUrl && invoice.refundTxHash && (
                       <div className="flex justify-between gap-2">
-                        <span className="text-slate-500">Refund Receipt:</span>
+                        <span className="text-[#736f65]">Refund Receipt:</span>
                         <a
                           href={invoice.refundTxUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-rose-600 hover:underline font-mono inline-flex items-center gap-1"
+                          className="text-[#d97b73] hover:underline font-mono inline-flex items-center gap-1"
                         >
                           {invoice.refundTxHash.slice(0, 14)}...
                           <ExternalLink className="w-3 h-3" />
@@ -522,8 +517,8 @@ export default function InvoiceCheckoutPage() {
                       </div>
                     )}
                     <div className="flex justify-between gap-2">
-                      <span className="text-slate-500">One-Time Stealth Account:</span>
-                      <span className="font-mono text-slate-700">
+                      <span className="text-[#736f65]">One-Time Stealth Account:</span>
+                      <span className="font-mono text-[#9c988c]">
                         {invoice.stealthImplicitAccount.slice(0, 14)}...
                       </span>
                     </div>
@@ -533,18 +528,18 @@ export default function InvoiceCheckoutPage() {
             </div>
           </div>
 
-          {/* Right Column: Clean Client Payment Card */}
+          {/* Right Column: Client Payment Card */}
           <div className="lg:col-span-5">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-5">
+            <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 space-y-5">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Pay Invoice</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <h2 className="text-lg font-semibold text-[#f4f1ea]">Pay Invoice</h2>
+                <p className="text-xs text-[#9c988c] mt-0.5">
                   Choose any token you already hold. Powered by NEAR Intents 1Click API.
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                <label className="block text-xs text-[#9c988c] mb-1.5">
                   Pay With
                 </label>
                 <select
@@ -553,7 +548,7 @@ export default function InvoiceCheckoutPage() {
                     setSelectedAssetId(e.target.value);
                     handleRequest1ClickQuote(e.target.value);
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea] focus:outline-none focus:border-[#d4b06a]"
                 >
                   {tokens.map((t) => (
                     <option key={t.assetId} value={t.assetId}>
@@ -563,23 +558,23 @@ export default function InvoiceCheckoutPage() {
                 </select>
               </div>
 
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-500">
+              <div className="p-4 rounded-lg bg-[#11110f] border border-[#272622] space-y-2 text-xs">
+                <div className="flex justify-between text-[#9c988c]">
                   <span>You Pay ({chosenToken?.chain})</span>
-                  <span className="font-bold text-slate-900 text-sm tabular-nums">
+                  <span className="font-semibold text-[#f4f1ea] text-sm tabular-nums">
                     ~{estimatedOriginAmount} {chosenToken?.symbol.split(' ')[0]}
                   </span>
                 </div>
-                <div className="flex justify-between text-slate-500">
+                <div className="flex justify-between text-[#9c988c]">
                   <span>Recipient Receives</span>
-                  <span className="font-bold text-emerald-600 text-sm tabular-nums">
+                  <span className="font-semibold text-[#77b28c] text-sm tabular-nums">
                     ${invoice.totalAmountUsdc.toFixed(2)} USDC
                   </span>
                 </div>
                 {quote && (
-                  <div className="pt-2 border-t border-slate-200/70 text-[11px] text-slate-500">
+                  <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#736f65]">
                     1Click Deposit Address:{' '}
-                    <span className="font-mono text-slate-700 break-all">
+                    <span className="font-mono text-[#9c988c] break-all">
                       {quote.depositAddress}
                     </span>
                   </div>
@@ -591,7 +586,7 @@ export default function InvoiceCheckoutPage() {
                   type="button"
                   disabled={invoice.status === 'PAID' || busyAction !== null}
                   onClick={handlePayWith1Click}
-                  className="w-full py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-500 text-white font-semibold text-sm shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] disabled:bg-[#22211d] disabled:text-[#736f65] text-[#0c0c0b] font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Wallet className="w-4 h-4" />
                   {busyAction === 'pay'
@@ -606,9 +601,9 @@ export default function InvoiceCheckoutPage() {
                     type="button"
                     disabled={busyAction !== null}
                     onClick={handlePingPayX402}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-lg bg-[#1c1c19] hover:bg-[#24231f] border border-[#2c2b26] text-[#d5d0c5] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Bot className="w-4 h-4 text-indigo-600" />
+                    <Bot className="w-4 h-4 text-[#d4b06a]" />
                     {busyAction === 'x402'
                       ? 'Settling via PingPay...'
                       : 'Pay via AI Agent (PingPay x402)'}
@@ -620,7 +615,7 @@ export default function InvoiceCheckoutPage() {
                     type="button"
                     disabled={busyAction !== null}
                     onClick={handleRefundInvoice}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-700 font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-lg bg-[#1c1c19] hover:bg-[#281817] border border-[#2c2b26] hover:border-[#492826] text-[#9c988c] hover:text-[#d97b73] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RefreshCcw className="w-3.5 h-3.5" />
                     {busyAction === 'refund'

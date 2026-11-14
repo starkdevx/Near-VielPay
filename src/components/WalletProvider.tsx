@@ -8,11 +8,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { setupWalletSelector, WalletSelector } from '@near-wallet-selector/core';
+import {
+  setupWalletSelector,
+  WalletSelector,
+} from '@near-wallet-selector/core';
 import { setupModal, WalletSelectorModal } from '@near-wallet-selector/modal-ui';
-import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 import { setupMeteorWallet } from '@near-wallet-selector/meteor-wallet';
-import { setupHereWallet } from '@near-wallet-selector/here-wallet';
 import { transactions, utils } from 'near-api-js';
 import '@near-wallet-selector/modal-ui/styles.css';
 
@@ -65,6 +66,31 @@ const WalletContext = createContext<WalletContextValue>({
 const CIRCLE_USDC_TESTNET =
   '3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af';
 
+function extractTxHash(outcome: unknown): string | null {
+  if (!outcome) return null;
+  if (typeof outcome === 'string') return outcome;
+  if (Array.isArray(outcome)) {
+    for (const item of outcome) {
+      const h = extractTxHash(item);
+      if (h) return h;
+    }
+    return null;
+  }
+  const obj = outcome as {
+    hash?: string;
+    transaction?: { hash?: string };
+    transaction_outcome?: { id?: string };
+    response?: unknown;
+  };
+  return (
+    obj?.transaction?.hash ||
+    obj?.transaction_outcome?.id ||
+    obj?.hash ||
+    (obj?.response ? extractTxHash(obj.response) : null) ||
+    null
+  );
+}
+
 async function checkStorageRegistered(
   contractId: string,
   accountId: string
@@ -86,6 +112,7 @@ async function checkStorageRegistered(
           args_base64: argsBase64,
         },
       }),
+      signal: AbortSignal.timeout(5000),
     });
     const data = await res.json();
     if (data?.result?.result) {
@@ -136,11 +163,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       try {
         const selector = await setupWalletSelector({
           network: 'testnet',
-          modules: [
-            setupMyNearWallet(),
-            setupMeteorWallet(),
-            setupHereWallet(),
-          ],
+          modules: [setupMeteorWallet()],
         });
 
         const modal = setupModal(selector, {
@@ -222,7 +245,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async (params: WalletPaymentParams): Promise<{ txHash: string }> => {
       const selector = selectorRef.current;
       if (!selector || !accountId) {
-        throw new Error('Please connect your NEAR wallet first.');
+        throw new Error('Please connect your Meteor Wallet first.');
       }
       const wallet = await selector.wallet();
       const receiverId = params.receiverId.trim();
@@ -231,21 +254,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (params.tokenSymbol === 'NEAR') {
-        const price = params.nearPriceUsd && params.nearPriceUsd > 0 ? params.nearPriceUsd : 4.85;
+        const price =
+          params.nearPriceUsd && params.nearPriceUsd > 0 ? params.nearPriceUsd : 4.85;
         const nearAmt = (params.amountUsd / price).toFixed(6);
         const yoctoStr = utils.format.parseNearAmount(nearAmt);
         if (!yoctoStr) {
           throw new Error('Invalid NEAR amount.');
         }
+        const actions = [transactions.transfer(BigInt(yoctoStr))];
         const outcome = await wallet.signAndSendTransaction({
           signerId: accountId,
           receiverId,
-          actions: [transactions.transfer(BigInt(yoctoStr))],
+          actions,
         });
-        const txHash =
-          (outcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } })
-            ?.transaction?.hash ||
-          (outcome as { transaction_outcome?: { id?: string } })?.transaction_outcome?.id;
+        const txHash = extractTxHash(outcome);
         if (!txHash) {
           throw new Error('Wallet transaction was cancelled or did not return a hash.');
         }
@@ -284,10 +306,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         receiverId: usdcContract,
         actions,
       });
-      const txHash =
-        (outcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } })
-          ?.transaction?.hash ||
-        (outcome as { transaction_outcome?: { id?: string } })?.transaction_outcome?.id;
+      const txHash = extractTxHash(outcome);
       if (!txHash) {
         throw new Error('Wallet transaction was cancelled or did not return a hash.');
       }
@@ -300,7 +319,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async (params: WalletBatchPaymentParams): Promise<{ txHash: string }> => {
       const selector = selectorRef.current;
       if (!selector || !accountId) {
-        throw new Error('Please connect your NEAR wallet first.');
+        throw new Error('Please connect your Meteor Wallet first.');
       }
       if (!params.recipients.length) {
         throw new Error('No payroll recipients specified.');
@@ -308,7 +327,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const wallet = await selector.wallet();
 
       if (params.tokenSymbol === 'NEAR') {
-        const price = params.nearPriceUsd && params.nearPriceUsd > 0 ? params.nearPriceUsd : 4.85;
+        const price =
+          params.nearPriceUsd && params.nearPriceUsd > 0 ? params.nearPriceUsd : 4.85;
         const txs = params.recipients.map((r) => {
           const nearAmt = (r.amountUsd / price).toFixed(6);
           const yoctoStr = utils.format.parseNearAmount(nearAmt) || '0';
@@ -319,18 +339,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           };
         });
         const outcomes = await wallet.signAndSendTransactions({ transactions: txs });
-        const firstOutcome = Array.isArray(outcomes) ? outcomes[0] : outcomes;
-        const txHash =
-          (firstOutcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } })
-            ?.transaction?.hash ||
-          (firstOutcome as { transaction_outcome?: { id?: string } })?.transaction_outcome?.id;
+        const txHash = extractTxHash(outcomes);
         if (!txHash) {
           throw new Error('Batch wallet transaction was cancelled or did not return a hash.');
         }
         return { txHash };
       }
 
-      const totalUsd = params.recipients.reduce((s, r) => s + r.amountUsd, 0);
       const usdcContract = CIRCLE_USDC_TESTNET;
       const regChecks = await Promise.all(
         params.recipients.map((r) => checkStorageRegistered(usdcContract, r.receiverId))
@@ -368,11 +383,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       });
 
       const outcomes = await wallet.signAndSendTransactions({ transactions: txs });
-      const firstOutcome = Array.isArray(outcomes) ? outcomes[0] : outcomes;
-      const txHash =
-        (firstOutcome as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } })
-          ?.transaction?.hash ||
-        (firstOutcome as { transaction_outcome?: { id?: string } })?.transaction_outcome?.id;
+      const txHash = extractTxHash(outcomes);
       if (!txHash) {
         throw new Error('Batch wallet transaction was cancelled or did not return a hash.');
       }

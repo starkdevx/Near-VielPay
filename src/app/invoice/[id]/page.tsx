@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Shield,
   Wallet,
-  Bot,
   AlertCircle,
   ChevronDown,
   ChevronUp,
@@ -178,18 +177,32 @@ export default function InvoiceCheckoutPage() {
         memo: invoice.invoiceId,
       });
 
-      const res = await fetch('/api/invoices', {
+      const payload = {
+        action: 'pay_invoice_1click',
+        invoiceId: invoice.invoiceId,
+        originAssetSymbol: selectedToken,
+        originChain: 'NEAR Testnet',
+        payerAccountId: accountId,
+        settlementTxHash: txHash,
+      };
+
+      let res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'pay_invoice_1click',
-          invoiceId: invoice.invoiceId,
-          originAssetSymbol: selectedToken,
-          originChain: 'NEAR Testnet',
-          payerAccountId: accountId,
-          settlementTxHash: txHash,
-        }),
+        body: JSON.stringify(payload),
       });
+      if (res.status === 404) {
+        await fetch('/api/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'sync_invoice', invoice }),
+        });
+        res = await fetch('/api/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       setInvoice(data.invoice);
@@ -235,41 +248,6 @@ export default function InvoiceCheckoutPage() {
       setBannerMessage({
         type: 'success',
         text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} USDC settled on NEAR Testnet.`,
-        txUrl: data.invoice.settlementTxUrl,
-      });
-    } catch (err) {
-      setBannerMessage({
-        type: 'error',
-        text: (err as Error).message,
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const handlePingPayX402 = async () => {
-    if (!invoice) return;
-    setBusyAction('x402');
-    setBannerMessage(null);
-    try {
-      const res = await fetch(`/api/x402/${encodeURIComponent(invoice.invoiceId)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-PAYMENT': 'pingpay_x402_base_usdc_testnet_proof',
-          ...(accountId ? { 'x-payer-account': accountId } : {}),
-        },
-        body: JSON.stringify({
-          payerAccountId: accountId || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'x402 payment failed');
-      setInvoice(data.invoice);
-      savePaidInvoiceId(data.invoice.invoiceId);
-      setBannerMessage({
-        type: 'success',
-        text: 'Paid via PingPay x402 Agent Facilitator (Base USDC → NEAR)!',
         txUrl: data.invoice.settlementTxUrl,
       });
     } catch (err) {
@@ -797,6 +775,12 @@ export default function InvoiceCheckoutPage() {
                               ? `Pay ${(invoice.totalAmountUsdc / (tokens.find((t) => t.symbol === 'NEAR')?.priceUsd || 4.85)).toFixed(4)} NEAR`
                               : `Pay $${invoice.totalAmountUsdc.toFixed(2)} ${selectedToken}`}
                         </button>
+                        {bannerMessage?.type === 'error' && (
+                          <div className="p-2.5 rounded-lg bg-[#e27474]/10 border border-[#e27474]/30 text-xs text-[#e27474] flex items-start gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>{bannerMessage.text}</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <button
@@ -808,20 +792,6 @@ export default function InvoiceCheckoutPage() {
                         Connect NEAR Wallet to Pay
                       </button>
                     )}
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <button
-                      type="button"
-                      disabled={busyAction !== null}
-                      onClick={handlePingPayX402}
-                      className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#23221e] border border-[#2c2b26] text-[#d5d0c5] font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Bot className="w-4 h-4 text-[#d4b06a]" />
-                      {busyAction === 'x402'
-                        ? 'Settling via PingPay...'
-                        : 'Pay via AI Agent (PingPay x402)'}
-                    </button>
                   </div>
                 </>
               )}

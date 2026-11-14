@@ -46,6 +46,21 @@ import {
   PayrollRecipientInput,
   PrivatePayrollBatch,
 } from '@/lib/types';
+import {
+  encodePortablePayload,
+  loadCachedBatches,
+  loadCachedInvoices,
+  loadCachedMerchantLinks,
+  mergeBatches,
+  mergeInvoices,
+  mergeMerchantLinks,
+  saveCachedBatches,
+  saveCachedInvoices,
+  saveCachedMerchantLinks,
+  upsertCachedBatch,
+  upsertCachedInvoice,
+  upsertCachedMerchantLink,
+} from '@/lib/client-cache';
 
 interface TestnetInfo {
   networkId: string;
@@ -200,6 +215,12 @@ export default function NearVeilHomePage() {
           setPayrollRecipients(parsed);
         }
       }
+      const cachedInv = loadCachedInvoices();
+      if (cachedInv.length > 0) setInvoices(cachedInv);
+      const cachedB = loadCachedBatches();
+      if (cachedB.length > 0) setPayrollBatches(cachedB);
+      const cachedL = loadCachedMerchantLinks();
+      if (cachedL.length > 0) setMerchantLinks(cachedL);
     } catch {
       // ignore
     }
@@ -233,11 +254,45 @@ export default function NearVeilHomePage() {
       const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       setTestnetInfo(data.testnetInfo || null);
-      setInvoices(data.invoices || []);
-      setPayrollBatches(data.payrollBatches || []);
-      if (Array.isArray(data.merchantLinks)) {
-        setMerchantLinks(data.merchantLinks);
+
+      const srvInvoices: NearVeilInvoice[] = Array.isArray(data.invoices) ? data.invoices : [];
+      const srvBatches: PrivatePayrollBatch[] = Array.isArray(data.payrollBatches) ? data.payrollBatches : [];
+      const srvLinks: MerchantPaymentLink[] = Array.isArray(data.merchantLinks) ? data.merchantLinks : [];
+
+      const cachedInv = loadCachedInvoices();
+      const cachedB = loadCachedBatches();
+      const cachedL = loadCachedMerchantLinks();
+
+      const mergedInv = mergeInvoices(srvInvoices, cachedInv);
+      const mergedB = mergeBatches(srvBatches, cachedB);
+      const mergedL = mergeMerchantLinks(srvLinks, cachedL);
+
+      setInvoices(mergedInv);
+      setPayrollBatches(mergedB);
+      setMerchantLinks(mergedL);
+
+      saveCachedInvoices(mergedInv);
+      saveCachedBatches(mergedB);
+      saveCachedMerchantLinks(mergedL);
+
+      // Hydrate cold serverless container if it lacks locally cached items
+      if (
+        mergedInv.length > srvInvoices.length ||
+        mergedB.length > srvBatches.length ||
+        mergedL.length > srvLinks.length
+      ) {
+        fetch('/api/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sync_ledger',
+            invoices: mergedInv,
+            payrollBatches: mergedB,
+            merchantLinks: mergedL,
+          }),
+        }).catch(() => {});
       }
+
       setTokens(data.oneClickTokens || []);
       if (accountId && data.liveWalletBalances?.accountId === accountId) {
         setWalletNearBalance(data.liveWalletBalances.nearBalance ?? 0);
@@ -291,9 +346,14 @@ export default function NearVeilHomePage() {
       const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.merchantLinks)) {
-          setMerchantLinks(data.merchantLinks);
-        }
+        const srvLinks: MerchantPaymentLink[] = Array.isArray(data.allLinks)
+          ? data.allLinks
+          : Array.isArray(data.merchantLinks)
+            ? data.merchantLinks
+            : [];
+        const merged = mergeMerchantLinks(srvLinks, loadCachedMerchantLinks());
+        setMerchantLinks(merged);
+        saveCachedMerchantLinks(merged);
       }
     } catch {
       // ignore
@@ -420,7 +480,11 @@ export default function NearVeilHomePage() {
     .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
 
   const handleCopyInvoiceLink = (invoiceId: string) => {
-    const url = `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}`;
+    const inv = invoices.find((i) => i.invoiceId === invoiceId);
+    const payload = inv ? encodePortablePayload(inv) : '';
+    const url = payload
+      ? `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}?d=${encodeURIComponent(payload)}`
+      : `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}`;
     navigator.clipboard?.writeText(url);
     setCopiedId(invoiceId);
     setTimeout(() => setCopiedId(null), 1800);
@@ -463,9 +527,12 @@ export default function NearVeilHomePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
-      await fetchDashboard();
-      setShowCreateModal(false);
-      const createdInv = data.invoice;
+      const createdInv = data.invoice as NearVeilInvoice;
+
+      // Immediately persist in local cache and React state so it never disappears on cold containers
+      const updatedCache = upsertCachedInvoice(createdInv);
+      setInvoices((prev) => mergeInvoices([createdInv, ...prev], updatedCache));
+
       const updatedIds = [
         createdInv.invoiceId,
         ...myCreatedInvoiceIds.filter((id) => id !== createdInv.invoiceId),
@@ -476,6 +543,7 @@ export default function NearVeilHomePage() {
       } catch {
         // ignore
       }
+      setShowCreateModal(false);
       setNewlyCreatedInvoice(createdInv);
       setShowShareModal(true);
       setToast({
@@ -640,6 +708,15 @@ export default function NearVeilHomePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payroll batch failed');
       if (data.batch?.batchId) {
+        const updatedBatchCache = upsertCachedBatch(data.batch);
+        setPayrollBatches((prev) => mergeBatches([data.batch, ...prev], updatedBatchCache));
+        if (Array.isArray(data.slips)) {
+          let nextInvCache = loadCachedInvoices();
+          for (const s of data.slips) {
+            nextInvCache = upsertCachedInvoice(s);
+          }
+          setInvoices((prev) => mergeInvoices([...data.slips, ...prev], nextInvCache));
+        }
         const updatedBatchIds = [
           data.batch.batchId,
           ...myPayrollBatchIds.filter((id) => id !== data.batch.batchId),
@@ -691,6 +768,10 @@ export default function NearVeilHomePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create checkout link');
+      if (data.link) {
+        const updatedLinks = upsertCachedMerchantLink(data.link);
+        setMerchantLinks((prev) => mergeMerchantLinks([data.link, ...prev], updatedLinks));
+      }
       await fetchMerchantLinks();
       setMerchantTitle('');
       setMerchantDescription('');

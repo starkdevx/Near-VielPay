@@ -23,6 +23,11 @@ import {
   MerchantReceipt,
   OneClickTokenOption,
 } from '@/lib/types';
+import {
+  decodePortablePayload,
+  loadCachedMerchantLinks,
+  upsertCachedMerchantLink,
+} from '@/lib/client-cache';
 
 export default function MerchantCheckoutPage({
   params,
@@ -54,13 +59,44 @@ export default function MerchantCheckoutPage({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (typeof window !== 'undefined') {
+          const cachedMatch =
+            loadCachedMerchantLinks().find(
+              (l) => l.paymentId.toLowerCase() === id.toLowerCase()
+            ) || null;
+          const urlMatch = decodePortablePayload<MerchantPaymentLink>(
+            new URLSearchParams(window.location.search).get('d')
+          );
+          const fallback =
+            cachedMatch ||
+            (urlMatch?.paymentId?.toLowerCase() === id.toLowerCase() ? urlMatch : null);
+          if (fallback) {
+            setLink(fallback);
+            upsertCachedMerchantLink(fallback);
+            fetch('/api/merchant', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'sync_link', link: fallback }),
+            }).catch(() => {});
+            return;
+          }
+        }
         setError(data.error || 'Checkout link not found.');
         return;
       }
       setLink(data.link);
+      upsertCachedMerchantLink(data.link);
       setTokens(data.oneClickTokens || []);
     } catch {
-      setError('Could not load checkout details.');
+      const cachedMatch =
+        loadCachedMerchantLinks().find(
+          (l) => l.paymentId.toLowerCase() === id.toLowerCase()
+        ) || null;
+      if (cachedMatch) {
+        setLink(cachedMatch);
+      } else {
+        setError('Could not load checkout details.');
+      }
     } finally {
       setLoading(false);
     }
@@ -138,6 +174,7 @@ export default function MerchantCheckoutPage({
         throw new Error(data.error || 'Payment failed.');
       }
       setLink(data.link);
+      upsertCachedMerchantLink(data.link);
       setConfirmedReceipt(data.receipt);
       setCustomerNote('');
     } catch (err) {

@@ -618,6 +618,67 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 6. Hydrate / Sync records into ephemeral serverless container
+    if (action === 'sync_invoice') {
+      const inv = body.invoice as NearVeilInvoice | undefined;
+      if (!inv || !inv.invoiceId) {
+        return NextResponse.json({ error: 'Invalid invoice payload' }, { status: 400 });
+      }
+      const existingIdx = ledger.invoices.findIndex((i) => i.invoiceId === inv.invoiceId);
+      if (existingIdx === -1) {
+        ledger.invoices.unshift(inv);
+        writeLedger(ledger);
+      } else if (
+        ledger.invoices[existingIdx].status === 'PENDING' &&
+        (inv.status === 'PAID' || inv.status === 'REFUNDED')
+      ) {
+        ledger.invoices[existingIdx] = inv;
+        writeLedger(ledger);
+      }
+      return NextResponse.json({ synced: true, invoice: inv });
+    }
+
+    if (action === 'sync_ledger') {
+      const incomingInvoices = Array.isArray(body.invoices)
+        ? (body.invoices as NearVeilInvoice[])
+        : [];
+      const incomingBatches = Array.isArray(body.payrollBatches) ? body.payrollBatches : [];
+      const incomingLinks = Array.isArray(body.merchantLinks) ? body.merchantLinks : [];
+      let changed = false;
+
+      for (const inv of incomingInvoices) {
+        if (!inv?.invoiceId) continue;
+        const idx = ledger.invoices.findIndex((i) => i.invoiceId === inv.invoiceId);
+        if (idx === -1) {
+          ledger.invoices.push(inv);
+          changed = true;
+        }
+      }
+      for (const batch of incomingBatches) {
+        if (!batch?.batchId) continue;
+        if (!ledger.payrollBatches.some((b) => b.batchId === batch.batchId)) {
+          ledger.payrollBatches.push(batch);
+          changed = true;
+        }
+      }
+      for (const link of incomingLinks) {
+        if (!link?.paymentId) continue;
+        if (!ledger.merchantLinks.some((l) => l.paymentId === link.paymentId)) {
+          ledger.merchantLinks.push(link);
+          changed = true;
+        }
+      }
+      if (changed) {
+        writeLedger(ledger);
+      }
+      return NextResponse.json({
+        synced: true,
+        invoices: ledger.invoices,
+        payrollBatches: ledger.payrollBatches,
+        merchantLinks: ledger.merchantLinks,
+      });
+    }
+
     return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
   } catch (err) {
     return NextResponse.json(

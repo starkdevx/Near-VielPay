@@ -24,6 +24,12 @@ import {
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import { useNearWallet } from '@/components/WalletProvider';
 import { NearVeilInvoice, OneClickQuoteResponse, OneClickTokenOption } from '@/lib/types';
+import {
+  decodePortablePayload,
+  encodePortablePayload,
+  loadCachedInvoices,
+  upsertCachedInvoice,
+} from '@/lib/client-cache';
 
 export default function InvoiceCheckoutPage() {
   const params = useParams();
@@ -48,7 +54,11 @@ export default function InvoiceCheckoutPage() {
   } | null>(null);
 
   const handleCopyLink = () => {
-    navigator.clipboard?.writeText(window.location.href);
+    const payload = invoice ? encodePortablePayload(invoice) : '';
+    const url = payload
+      ? `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}?d=${encodeURIComponent(payload)}`
+      : window.location.href;
+    navigator.clipboard?.writeText(url);
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2000);
   };
@@ -57,18 +67,46 @@ export default function InvoiceCheckoutPage() {
     try {
       const res = await fetch('/api/invoices', { cache: 'no-store' });
       const data = await res.json();
-      const found = (data.invoices || []).find(
-        (i: NearVeilInvoice) => i.invoiceId === invoiceId
-      );
+      let found: NearVeilInvoice | null =
+        (data.invoices || []).find(
+          (i: NearVeilInvoice) => i.invoiceId === invoiceId
+        ) || null;
+
+      if (!found && typeof window !== 'undefined') {
+        const cachedMatch =
+          loadCachedInvoices().find((i) => i.invoiceId === invoiceId) || null;
+        const urlMatch = decodePortablePayload<NearVeilInvoice>(
+          new URLSearchParams(window.location.search).get('d')
+        );
+        const fallback = cachedMatch || (urlMatch?.invoiceId === invoiceId ? urlMatch : null);
+        if (fallback) {
+          found = fallback;
+          upsertCachedInvoice(fallback);
+          fetch('/api/invoices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'sync_invoice', invoice: fallback }),
+          }).catch(() => {});
+        }
+      } else if (found) {
+        upsertCachedInvoice(found);
+      }
+
       setInvoice(found || null);
       const tokenList: OneClickTokenOption[] = data.oneClickTokens || [];
       setTokens(tokenList);
       setSelectedAssetId((prev) => prev || tokenList[2]?.assetId || tokenList[0]?.assetId || '');
     } catch {
-      setBannerMessage({
-        type: 'error',
-        text: 'Failed to load invoice details.',
-      });
+      const cachedMatch =
+        loadCachedInvoices().find((i) => i.invoiceId === invoiceId) || null;
+      if (cachedMatch) {
+        setInvoice(cachedMatch);
+      } else {
+        setBannerMessage({
+          type: 'error',
+          text: 'Failed to load invoice details.',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -155,6 +193,7 @@ export default function InvoiceCheckoutPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       setInvoice(data.invoice);
+      upsertCachedInvoice(data.invoice);
       savePaidInvoiceId(data.invoice.invoiceId);
       setBannerMessage({
         type: 'success',

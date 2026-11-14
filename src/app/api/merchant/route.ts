@@ -219,6 +219,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ link });
     }
 
+    if (action === 'sync_link') {
+      const incoming = body.link as MerchantPaymentLink | undefined;
+      if (!incoming || !incoming.paymentId) {
+        return NextResponse.json({ error: 'Invalid link payload' }, { status: 400 });
+      }
+      if (!ledger.merchantLinks.some((l) => l.paymentId === incoming.paymentId)) {
+        ledger.merchantLinks.unshift(incoming);
+        writeLedger(ledger);
+      }
+      return NextResponse.json({ synced: true, link: incoming });
+    }
+
     return NextResponse.json({ error: 'Unsupported action' }, { status: 400 });
   } catch (err) {
     return NextResponse.json(

@@ -3,60 +3,28 @@ import { OneClickQuoteResponse, OneClickTokenOption } from './types';
 
 export const ONECLICK_API_BASE = 'https://1click.chaindefuser.com';
 export const NEAR_USDC_ASSET_ID =
-  'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1.omft.near';
+  'nep141:3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af';
 
 /**
- * Curated cross-chain tokens supported by NEAR Intents 1Click API, enriched with live
- * `/v0/tokens` prices when online and deterministic fallback rates for Testnet Sandbox.
+ * Real NEAR Testnet tokens supported for direct wallet-signed payments & payroll.
+ * Enriched with live NEAR/USD market pricing when online.
  */
 export const DEFAULT_ONECLICK_TOKENS: OneClickTokenOption[] = [
   {
-    assetId: 'nep141:usdc.fakes.testnet',
-    symbol: 'USDC (NEAR Testnet)',
-    name: 'Testnet USD Coin on NEAR',
+    assetId: 'nep141:3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af',
+    symbol: 'USDC',
+    name: 'Circle Native USDC (NEAR Testnet)',
     chain: 'NEAR Testnet',
     decimals: 6,
     priceUsd: 1.0,
   },
   {
-    assetId: 'nep141:wrap.testnet',
-    symbol: 'wNEAR (Testnet)',
-    name: 'Wrapped NEAR on Testnet',
+    assetId: 'native:near.testnet',
+    symbol: 'NEAR',
+    name: 'Native NEAR (Testnet)',
     chain: 'NEAR Testnet',
     decimals: 24,
     priceUsd: 4.85,
-  },
-  {
-    assetId: 'nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near',
-    symbol: 'SOL',
-    name: 'Solana Native via 1Click Intents',
-    chain: 'Solana',
-    decimals: 9,
-    priceUsd: 185.0,
-  },
-  {
-    assetId: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near',
-    symbol: 'USDC (Base)',
-    name: 'USD Coin on Base (1Click / PingPay x402)',
-    chain: 'Base',
-    decimals: 6,
-    priceUsd: 1.0,
-  },
-  {
-    assetId: 'nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near',
-    symbol: 'USDC (Arbitrum)',
-    name: 'USD Coin on Arbitrum via 1Click Intents',
-    chain: 'Arbitrum',
-    decimals: 6,
-    priceUsd: 1.0,
-  },
-  {
-    assetId: 'nep141:eth.omft.near',
-    symbol: 'ETH',
-    name: 'Ethereum Native via 1Click Intents',
-    chain: 'Ethereum',
-    decimals: 18,
-    priceUsd: 3120.0,
   },
 ];
 

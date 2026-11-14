@@ -3,6 +3,7 @@ node_modules/
 out/
 .nearveil-testnet.json
 .nearveil-ledger.json
+.nearveil-ledger.bak.json
 .env
 .env.*
 target/

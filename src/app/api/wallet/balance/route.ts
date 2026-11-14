@@ -10,8 +10,7 @@ export async function GET(req: NextRequest) {
       accountId: '',
       nearBalance: 0,
       usdcBalance: 0,
-      usdcOfficialBalance: 0,
-      usdcBridgedBalance: 0,
+      usdcCircleBalance: 0,
     });
   }
 

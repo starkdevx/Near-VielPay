@@ -29,10 +29,12 @@ export default function InvoiceCheckoutPage() {
   const params = useParams();
   const invoiceId = String(params?.id || '');
 
-  const { accountId, isConnected, connect, disconnect } = useNearWallet();
+  const { accountId, isConnected, connect, disconnect, sendNearOrUsdcPayment } =
+    useNearWallet();
 
   const [invoice, setInvoice] = useState<NearVeilInvoice | null>(null);
   const [tokens, setTokens] = useState<OneClickTokenOption[]>([]);
+  const [selectedToken, setSelectedToken] = useState<'USDC' | 'NEAR'>('USDC');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [quote, setQuote] = useState<OneClickQuoteResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -119,18 +121,35 @@ export default function InvoiceCheckoutPage() {
 
   const handlePayWithConnectedWallet = async () => {
     if (!invoice) return;
+    if (!isConnected || !accountId) {
+      connect();
+      return;
+    }
     setBusyAction('wallet_pay');
     setBannerMessage(null);
     try {
+      const nearTok = tokens.find((t) => t.symbol === 'NEAR');
+      const nearPriceUsd = nearTok?.priceUsd || 4.85;
+      const receiverId = invoice.freelancerAccount || invoice.stealthImplicitAccount;
+
+      const { txHash } = await sendNearOrUsdcPayment({
+        receiverId,
+        amountUsd: invoice.totalAmountUsdc,
+        tokenSymbol: selectedToken,
+        nearPriceUsd,
+        memo: invoice.invoiceId,
+      });
+
       const res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'pay_invoice_1click',
           invoiceId: invoice.invoiceId,
-          originAssetSymbol: 'USDC',
-          originChain: 'NEAR',
-          payerAccountId: accountId || undefined,
+          originAssetSymbol: selectedToken,
+          originChain: 'NEAR Testnet',
+          payerAccountId: accountId,
+          settlementTxHash: txHash,
         }),
       });
       const data = await res.json();
@@ -139,7 +158,7 @@ export default function InvoiceCheckoutPage() {
       savePaidInvoiceId(data.invoice.invoiceId);
       setBannerMessage({
         type: 'success',
-        text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} USDC paid from ${accountId || 'connected wallet'} and settled on NEAR Testnet.`,
+        text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} (${selectedToken}) paid on-chain from ${accountId}.`,
         txUrl: data.invoice.settlementTxUrl,
       });
     } catch (err) {
@@ -665,18 +684,59 @@ export default function InvoiceCheckoutPage() {
                 </div>
               ) : (
                 <>
-                  {/* Option 1: Direct NEAR Wallet Pay */}
-                  <div className="p-4 rounded-xl bg-[#151410] border border-[#302d24] space-y-3">
+                  {/* Direct NEAR Testnet Wallet Pay (Circle USDC or Native NEAR) */}
+                  <div className="p-4 rounded-xl bg-[#151410] border border-[#302d24] space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-[#f5ecd5] flex items-center gap-1.5">
                         <Wallet className="w-3.5 h-3.5 text-[#d4b06a]" />
-                        Pay with NEAR Wallet
+                        Pay on NEAR Testnet
                       </span>
                       {isConnected && (
                         <span className="text-[10px] font-mono text-[#34d399] bg-[#112419] px-2 py-0.5 rounded border border-[#2b4d37]">
                           Connected
                         </span>
                       )}
+                    </div>
+
+                    {/* Token Selector: USDC, NEAR */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['USDC', 'NEAR'] as const).map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => setSelectedToken(sym)}
+                          className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                            selectedToken === sym
+                              ? 'bg-[#221f17] border-[#d4b06a]/70 text-[#f5ecd5] shadow-[0_0_12px_rgba(212,176,106,0.2)]'
+                              : 'bg-[#11110e] border-[#272622] text-[#9c978b] hover:border-[#474337]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 text-xs font-semibold">
+                            <ChainDot chain="NEAR Testnet" />
+                            {sym === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
+                          </div>
+                          <div className="text-[10px] font-mono text-[#7c786e] mt-0.5">
+                            {sym === 'NEAR' ? 'Testnet Native' : 'Circle Native USDC'}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#11110e] border border-[#272622] space-y-1.5 text-xs">
+                      <div className="flex justify-between text-[#8e8a7f]">
+                        <span>Amount to Send</span>
+                        <span className="font-mono font-semibold text-[#f5dfa8]">
+                          {selectedToken === 'NEAR'
+                            ? `${(invoice.totalAmountUsdc / (tokens.find((t) => t.symbol === 'NEAR')?.priceUsd || 4.85)).toFixed(4)} NEAR`
+                            : `${invoice.totalAmountUsdc.toFixed(2)} ${selectedToken}`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-[#8e8a7f]">
+                        <span>Recipient</span>
+                        <span className="font-mono text-[#f5f2eb] max-w-[170px] truncate">
+                          {invoice.freelancerAccount || invoice.stealthImplicitAccount}
+                        </span>
+                      </div>
                     </div>
 
                     {isConnected && accountId ? (
@@ -693,8 +753,10 @@ export default function InvoiceCheckoutPage() {
                         >
                           <Wallet className="w-4 h-4" />
                           {busyAction === 'wallet_pay'
-                            ? 'Processing Payment...'
-                            : `Pay $${invoice.totalAmountUsdc.toFixed(2)} USDC from Wallet`}
+                            ? 'Confirming in Wallet...'
+                            : selectedToken === 'NEAR'
+                              ? `Pay ${(invoice.totalAmountUsdc / (tokens.find((t) => t.symbol === 'NEAR')?.priceUsd || 4.85)).toFixed(4)} NEAR`
+                              : `Pay $${invoice.totalAmountUsdc.toFixed(2)} ${selectedToken}`}
                         </button>
                       </div>
                     ) : (
@@ -709,85 +771,7 @@ export default function InvoiceCheckoutPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-[#6d695f]">
-                    <div className="h-px bg-[#262520] flex-1" />
-                    <span>or pay from other chains</span>
-                    <div className="h-px bg-[#262520] flex-1" />
-                  </div>
-
-                  {/* Visual Clickable Token Grid */}
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-[#a39f93]">
-                      Pay With Token
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {tokens.map((t) => {
-                        const isSelected = t.assetId === selectedAssetId;
-                        return (
-                          <button
-                            key={t.assetId}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAssetId(t.assetId);
-                              handleRequest1ClickQuote(t.assetId);
-                            }}
-                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-[#221f17] border-[#d4b06a]/70 shadow-[0_0_15px_rgba(212,176,106,0.2)]'
-                                : 'bg-[#11110e] border-[#272622] hover:border-[#474337]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <ChainDot chain={t.chain} />
-                              <span className="text-xs font-semibold text-[#f5f2eb] truncate">
-                                {t.symbol.split(' ')[0]}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-[#8e8a7f] mt-0.5 truncate pl-4">
-                              {t.chain}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-[#11110e] border border-[#272622] space-y-2 text-xs shadow-inner">
-                    <div className="flex justify-between text-[#8e8a7f]">
-                      <span>You Pay ({chosenToken?.chain})</span>
-                      <span className="font-semibold text-[#f5f2eb] text-sm tabular-nums">
-                        ~{estimatedOriginAmount} {chosenToken?.symbol.split(' ')[0]}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-[#8e8a7f]">
-                      <span>Recipient Receives</span>
-                      <span className="font-semibold text-[#34d399] text-sm tabular-nums">
-                        ${invoice.totalAmountUsdc.toFixed(2)} USDC
-                      </span>
-                    </div>
-                    {quote && (
-                      <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#6d695f]">
-                        1Click Deposit Address:{' '}
-                        <span className="font-mono text-[#8e8a7f] break-all">
-                          {quote.depositAddress}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
                   <div className="space-y-2.5">
-                    <button
-                      type="button"
-                      disabled={busyAction !== null}
-                      onClick={handlePayWith1Click}
-                      className="w-full py-3 px-5 rounded-xl bg-[#1e1c17] hover:bg-[#28261e] border border-[#3b372c] hover:border-[#d4b06a]/50 text-[#f5f2eb] font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Zap className="w-4 h-4 text-[#d4b06a]" />
-                      {busyAction === 'pay'
-                        ? 'Processing Payment...'
-                        : `Pay ~${estimatedOriginAmount} ${chosenToken?.symbol.split(' ')[0]} via 1Click`}
-                    </button>
-
                     <button
                       type="button"
                       disabled={busyAction !== null}

@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   if (!accountId) {
     return NextResponse.json(
-      { merchantLinks: [] },
+      { merchantLinks: ledger.merchantLinks || [] },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   }
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   );
 
   return NextResponse.json(
-    { merchantLinks: filtered },
+    { merchantLinks: filtered, allLinks: ledger.merchantLinks || [] },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
@@ -141,17 +141,27 @@ export async function POST(req: NextRequest) {
       }
 
       const receiptId = `RCPT-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-      const relayResult = await executeRelayedContractCall({
-        targetContractId: config.contractAccountId,
-        methodName: 'settle_invoice_1click',
-        args: {
-          invoice_id: `${link.paymentId}:${receiptId}`,
-          merchant_account: link.merchantAccountId,
-          payer_account: payerAccountId,
-          amount_usdc: link.amountUsdc.toFixed(2),
-          origin_asset: originAsset,
-        },
-      });
+      const providedTxHash = String(body.settlementTxHash || '').trim();
+      let txHash = providedTxHash;
+      let txUrl = providedTxHash
+        ? `${config.explorerBaseUrl}/txns/${providedTxHash}`
+        : '';
+
+      if (!txHash) {
+        const relayResult = await executeRelayedContractCall({
+          targetContractId: config.contractAccountId,
+          methodName: 'settle_invoice_1click',
+          args: {
+            invoice_id: `${link.paymentId}:${receiptId}`,
+            merchant_account: link.merchantAccountId,
+            payer_account: payerAccountId,
+            amount_usdc: link.amountUsdc.toFixed(2),
+            origin_asset: originAsset,
+          },
+        });
+        txHash = relayResult.txHash;
+        txUrl = relayResult.txUrl;
+      }
 
       const receipt: MerchantReceipt = {
         receiptId,
@@ -160,8 +170,8 @@ export async function POST(req: NextRequest) {
         amountUsdc: link.amountUsdc,
         originAsset,
         originChain,
-        settlementTxHash: relayResult.txHash,
-        settlementTxUrl: relayResult.txUrl,
+        settlementTxHash: txHash,
+        settlementTxUrl: txUrl,
         paidAtUtc: new Date().toISOString(),
       };
 
@@ -175,7 +185,7 @@ export async function POST(req: NextRequest) {
       }
 
       writeLedger(ledger);
-      return NextResponse.json({ link, receipt, relayResult });
+      return NextResponse.json({ link, receipt });
     }
 
     if (action === 'toggle_status') {

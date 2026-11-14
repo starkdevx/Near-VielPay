@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
     oneClickTokens: tokens,
     invoices: ledger.invoices,
     payrollBatches: ledger.payrollBatches,
+    merchantLinks: ledger.merchantLinks || [],
   });
 }
 
@@ -282,19 +283,33 @@ export async function POST(req: NextRequest) {
       }
 
       const paidAtUtc = new Date().toISOString();
-      const relayResult = await executeRelayedContractCall({
-        targetContractId: config.contractAccountId,
-        methodName: 'settle_invoice_1click',
-        args: {
-          invoice_id: invoice.invoiceId,
-          origin_rail: `${originAssetSymbol} (${originChain}) -> NEAR USDC via 1Click`,
-          stealth_commitment_hash: invoice.stealthCommitmentHash,
-          ephemeral_pubkey_hex: invoice.ephemeralPubKeyHex,
-          view_tag: invoice.viewTag,
-          amount_usdc_cents: Math.round(invoice.totalAmountUsdc * 100),
-          paid_at_utc: paidAtUtc,
-        },
-      });
+      const providedTxHash = body.settlementTxHash
+        ? String(body.settlementTxHash).trim()
+        : '';
+
+      let txHash = providedTxHash;
+      let txUrl = providedTxHash
+        ? `${config.explorerBaseUrl}/txns/${providedTxHash}`
+        : '';
+      let relayResult = null;
+
+      if (!txHash) {
+        relayResult = await executeRelayedContractCall({
+          targetContractId: config.contractAccountId,
+          methodName: 'settle_invoice_1click',
+          args: {
+            invoice_id: invoice.invoiceId,
+            origin_rail: `${originAssetSymbol} (${originChain}) -> NEAR Testnet`,
+            stealth_commitment_hash: invoice.stealthCommitmentHash,
+            ephemeral_pubkey_hex: invoice.ephemeralPubKeyHex,
+            view_tag: invoice.viewTag,
+            amount_usdc_cents: Math.round(invoice.totalAmountUsdc * 100),
+            paid_at_utc: paidAtUtc,
+          },
+        });
+        txHash = relayResult.txHash;
+        txUrl = relayResult.txUrl;
+      }
 
       invoice.status = 'PAID';
       invoice.paidTimestampUtc = paidAtUtc;
@@ -303,8 +318,8 @@ export async function POST(req: NextRequest) {
       }
       invoice.selectedOriginAsset = originAssetSymbol;
       invoice.selectedOriginChain = originChain;
-      invoice.settlementTxHash = relayResult.txHash;
-      invoice.settlementTxUrl = relayResult.txUrl;
+      invoice.settlementTxHash = txHash;
+      invoice.settlementTxUrl = txUrl;
       writeLedger(ledger);
 
       return NextResponse.json({
@@ -527,24 +542,38 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Single pooled on-chain transaction on NEAR Testnet: NO employee names or wallets on-chain!
-      const relayResult = await executeRelayedContractCall({
-        targetContractId: config.contractAccountId,
-        methodName: 'create_private_payroll_batch',
-        args: {
-          batch_id: batchId,
-          recipient_count: createdSlips.length,
-          commitments: onChainCommitments,
-        },
-      });
+      const providedFundingTxHash = body.fundingTxHash
+        ? String(body.fundingTxHash).trim()
+        : '';
+
+      let txHash = providedFundingTxHash;
+      let txUrl = providedFundingTxHash
+        ? `${config.explorerBaseUrl}/txns/${providedFundingTxHash}`
+        : '';
+      let relayResult = null;
+
+      if (!txHash) {
+        // Single pooled on-chain transaction on NEAR Testnet: NO employee names or wallets on-chain!
+        relayResult = await executeRelayedContractCall({
+          targetContractId: config.contractAccountId,
+          methodName: 'create_private_payroll_batch',
+          args: {
+            batch_id: batchId,
+            recipient_count: createdSlips.length,
+            commitments: onChainCommitments,
+          },
+        });
+        txHash = relayResult.txHash;
+        txUrl = relayResult.txUrl;
+      }
 
       for (const slip of createdSlips) {
-        slip.creationTxHash = relayResult.txHash;
-        slip.creationTxUrl = relayResult.txUrl;
-        slip.settlementTxHash = relayResult.txHash;
-        slip.settlementTxUrl = relayResult.txUrl;
-        slip.stealthClaimTxHash = relayResult.txHash;
-        slip.stealthClaimTxUrl = relayResult.txUrl;
+        slip.creationTxHash = txHash;
+        slip.creationTxUrl = txUrl;
+        slip.settlementTxHash = txHash;
+        slip.settlementTxUrl = txUrl;
+        slip.stealthClaimTxHash = txHash;
+        slip.stealthClaimTxUrl = txUrl;
         ledger.invoices.unshift(slip);
       }
 
@@ -558,8 +587,8 @@ export async function POST(req: NextRequest) {
         fundingOriginAsset,
         totalAmountUsdc: Number(totalBatchUsdc.toFixed(2)),
         recipientCount: createdSlips.length,
-        fundingTxHash: relayResult.txHash,
-        fundingTxUrl: relayResult.txUrl,
+        fundingTxHash: txHash,
+        fundingTxUrl: txUrl,
         invoiceIds: createdSlips.map((s) => s.invoiceId),
       };
 

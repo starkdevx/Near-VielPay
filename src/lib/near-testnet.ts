@@ -188,8 +188,6 @@ export interface AccountTestnetBalances {
   nearBalance: number;
   usdcBalance: number;
   usdcCircleBalance?: number;
-  usdcOfficialBalance?: number;
-  usdcBridgedBalance?: number;
 }
 
 const TESTNET_CIRCLE_USDC_CONTRACT =
@@ -264,10 +262,9 @@ async function queryFtBalance(
 }
 
 /**
- * Queries live, real on-chain NEAR and NEP-141 USDC balances
+ * Queries live, real on-chain NEAR and Circle Native USDC balances
  * directly from the NEAR Testnet RPC for any connected wallet.
- * Supports Circle Native USDC (3e22...b8af), Ref Bridged USDC (usdc.fakes.testnet),
- * and Legacy Testnet USDC (usdc.testnet), with multi-RPC and NearBlocks failover.
+ * Strictly uses Circle Native USDC (3e22...b8af) with multi-RPC and NearBlocks failover.
  */
 export async function fetchLiveAccountBalances(
   accountId: string
@@ -281,8 +278,6 @@ export async function fetchLiveAccountBalances(
       nearBalance: 0,
       usdcBalance: 0,
       usdcCircleBalance: 0,
-      usdcOfficialBalance: 0,
-      usdcBridgedBalance: 0,
     };
   }
 
@@ -347,21 +342,17 @@ export async function fetchLiveAccountBalances(
     }
   };
 
-  const [_, usdcCircle, usdcOfficial, usdcBridged] = await Promise.all([
+  const [_, usdcCircle] = await Promise.all([
     fetchNear(),
     queryFtBalance(rpcUrls, TESTNET_CIRCLE_USDC_CONTRACT, cleanedAccount),
-    queryFtBalance(rpcUrls, 'usdc.testnet', cleanedAccount),
-    queryFtBalance(rpcUrls, 'usdc.fakes.testnet', cleanedAccount),
   ]);
 
-  const totalUsdc = Number((usdcCircle + usdcOfficial + usdcBridged).toFixed(2));
+  const circleUsdc = Number(usdcCircle.toFixed(2));
 
   return {
     accountId: cleanedAccount,
     nearBalance: Number(nearBalance.toFixed(4)),
-    usdcBalance: totalUsdc,
-    usdcCircleBalance: Number(usdcCircle.toFixed(2)),
-    usdcOfficialBalance: Number(usdcOfficial.toFixed(2)),
-    usdcBridgedBalance: Number(usdcBridged.toFixed(2)),
+    usdcBalance: circleUsdc,
+    usdcCircleBalance: circleUsdc,
   };
 }

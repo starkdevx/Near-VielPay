@@ -30,15 +30,15 @@ export default function MerchantCheckoutPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { accountId, isConnected, connect, disconnect } = useNearWallet();
+  const { accountId, isConnected, connect, disconnect, sendNearOrUsdcPayment } =
+    useNearWallet();
 
   const [link, setLink] = useState<MerchantPaymentLink | null>(null);
   const [tokens, setTokens] = useState<OneClickTokenOption[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [payMode, setPayMode] = useState<'NEAR_WALLET' | 'ONECLICK'>('NEAR_WALLET');
-  const [selectedToken, setSelectedToken] = useState<string>('USDC');
+  const [selectedToken, setSelectedToken] = useState<'USDC' | 'NEAR'>('USDC');
   const [customerNote, setCustomerNote] = useState<string>('');
   const [paying, setPaying] = useState<boolean>(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -91,12 +91,14 @@ export default function MerchantCheckoutPage({
 
   const activeTokenObj =
     tokens.find((t) => t.symbol === selectedToken) || tokens[0];
-  const estimatedCrossChainIn =
-    link && activeTokenObj && activeTokenObj.priceUsd > 0
-      ? (link.amountUsdc / activeTokenObj.priceUsd).toFixed(
-          activeTokenObj.symbol.includes('USD') ? 2 : 5
-        )
-      : null;
+  const nearTokenObj = tokens.find((t) => t.symbol === 'NEAR');
+  const nearPriceUsd = nearTokenObj?.priceUsd || 4.85;
+  const estimatedAmountIn =
+    link && selectedToken === 'NEAR'
+      ? (link.amountUsdc / nearPriceUsd).toFixed(4)
+      : link
+        ? link.amountUsdc.toFixed(2)
+        : null;
 
   const handlePay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,12 +111,14 @@ export default function MerchantCheckoutPage({
     setPaying(true);
     setPayError(null);
     try {
-      const originAsset =
-        payMode === 'NEAR_WALLET' ? 'USDC' : activeTokenObj?.symbol || 'USDC';
-      const originChain =
-        payMode === 'NEAR_WALLET'
-          ? 'NEAR Testnet'
-          : activeTokenObj?.chain || 'NEAR';
+      // Execute REAL on-chain NEAR or Testnet USDC transfer via connected wallet
+      const { txHash } = await sendNearOrUsdcPayment({
+        receiverId: link.merchantAccountId,
+        amountUsd: link.amountUsdc,
+        tokenSymbol: selectedToken,
+        nearPriceUsd,
+        memo: `${link.paymentId}${customerNote ? ` - ${customerNote}` : ''}`,
+      });
 
       const res = await fetch('/api/merchant', {
         method: 'POST',
@@ -124,8 +128,9 @@ export default function MerchantCheckoutPage({
           paymentId: link.paymentId,
           payerAccountId: accountId,
           customerNote,
-          originAsset,
-          originChain,
+          originAsset: selectedToken,
+          originChain: 'NEAR Testnet',
+          settlementTxHash: txHash,
         }),
       });
       const data = await res.json();
@@ -423,76 +428,51 @@ export default function MerchantCheckoutPage({
                       Complete Payment
                     </h2>
                     <p className="text-xs text-[#9c978b] mt-1">
-                      Pay directly from your connected NEAR wallet or any supported chain.
+                      Pay directly on NEAR Testnet using USDC or Native NEAR from your connected wallet.
                     </p>
                   </div>
 
-                  {/* Payment Method Selector */}
-                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#13120f] border border-[#2a2820]">
-                    <button
-                      type="button"
-                      onClick={() => setPayMode('NEAR_WALLET')}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                        payMode === 'NEAR_WALLET'
-                          ? 'bg-[#221f17] text-[#f5ecd5] border border-[#d4b06a]/50'
-                          : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
-                      }`}
-                    >
-                      <Wallet className="w-3.5 h-3.5 text-[#d4b06a]" />
-                      NEAR Wallet
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPayMode('ONECLICK')}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                        payMode === 'ONECLICK'
-                          ? 'bg-[#14221a] text-[#e4f7eb] border border-[#34d399]/50'
-                          : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-[#34d399]" />
-                      Cross-Chain
-                    </button>
-                  </div>
-
-                  {payMode === 'ONECLICK' && tokens.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
-                        Select Origin Asset
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {tokens.slice(0, 6).map((tok) => (
-                          <button
-                            key={tok.assetId}
-                            type="button"
-                            onClick={() => setSelectedToken(tok.symbol)}
-                            className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                              selectedToken === tok.symbol
-                                ? 'bg-[#1c1b15] border-[#d4b06a]/60 text-[#f5ecd5]'
-                                : 'bg-[#13120f] border-[#26241d] text-[#9c978b] hover:border-[#3e3a2f]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 text-xs font-semibold">
-                              <ChainDot chain={tok.chain} />
-                              {tok.symbol}
-                            </div>
-                            <div className="text-[10px] font-mono text-[#7c786e] mt-0.5">
-                              {tok.chain}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      {estimatedCrossChainIn && activeTokenObj && (
-                        <div className="text-xs font-mono text-[#a39f93] bg-[#13120f] px-3 py-2 rounded-lg border border-[#25231d]">
-                          1Click Quote: ≈{' '}
-                          <span className="text-[#f5dfa8] font-semibold">
-                            {estimatedCrossChainIn} {activeTokenObj.symbol}
-                          </span>{' '}
-                          → ${link.amountUsdc.toFixed(2)} USDC
-                        </div>
-                      )}
+                  {/* NEAR Testnet Token Selector */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                      Select NEAR Testnet Token
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['USDC', 'NEAR'] as const).map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => setSelectedToken(sym)}
+                          className={`p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                            selectedToken === sym
+                              ? 'bg-[#1c1b15] border-[#d4b06a]/60 text-[#f5ecd5]'
+                              : 'bg-[#13120f] border-[#26241d] text-[#9c978b] hover:border-[#3e3a2f]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 text-xs font-semibold">
+                            <ChainDot chain="NEAR Testnet" />
+                            {sym === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
+                          </div>
+                          <div className="text-[10px] font-mono text-[#7c786e] mt-0.5">
+                            {sym === 'NEAR' ? 'Testnet Native' : 'Circle Native USDC'}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  )}
+                    {estimatedAmountIn && (
+                      <div className="text-xs font-mono text-[#a39f93] bg-[#13120f] px-3 py-2 rounded-lg border border-[#25231d]">
+                        Amount to send:{' '}
+                        <span className="text-[#f5dfa8] font-semibold">
+                          {estimatedAmountIn} {selectedToken}
+                        </span>
+                        {selectedToken === 'NEAR' && (
+                          <span className="text-[#7c786e] ml-1.5">
+                            (@ ${nearPriceUsd.toFixed(2)}/NEAR)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Connected Wallet Info */}
                   {isConnected && accountId ? (

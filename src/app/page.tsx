@@ -69,6 +69,8 @@ export default function NearVeilHomePage() {
     connect,
     disconnect,
     deriveClientStealthMeta,
+    sendNearOrUsdcPayment,
+    sendBatchNearOrUsdcPayroll,
   } = useNearWallet();
 
   const [viewRole, setViewRole] = useState<'employer' | 'employee'>('employer');
@@ -130,10 +132,9 @@ export default function NearVeilHomePage() {
   const [payPeriodLabel, setPayPeriodLabel] = useState<string>(
     'Nov 2026 · Bi-Weekly'
   );
-  const [payrollOriginChain, setPayrollOriginChain] =
-    useState<string>('NEAR Testnet');
-  const [payrollOriginAsset, setPayrollOriginAsset] =
-    useState<string>('USDC (NEAR Testnet)');
+  const [payrollOriginChain] = useState<string>('NEAR Testnet');
+  const [payrollTokenSymbol, setPayrollTokenSymbol] = useState<'USDC' | 'NEAR'>('USDC');
+  const payrollOriginAsset = `${payrollTokenSymbol} (NEAR Testnet)`;
   const [payrollRecipients, setPayrollRecipients] = useState<
     PayrollRecipientInput[]
   >([
@@ -202,6 +203,9 @@ export default function NearVeilHomePage() {
       setTestnetInfo(data.testnetInfo || null);
       setInvoices(data.invoices || []);
       setPayrollBatches(data.payrollBatches || []);
+      if (Array.isArray(data.merchantLinks)) {
+        setMerchantLinks(data.merchantLinks);
+      }
       setTokens(data.oneClickTokens || []);
       if (accountId && data.liveWalletBalances?.accountId === accountId) {
         setWalletNearBalance(data.liveWalletBalances.nearBalance ?? 0);
@@ -248,18 +252,16 @@ export default function NearVeilHomePage() {
 
   const fetchMerchantLinks = useCallback(async (targetAccount?: string) => {
     const acc = targetAccount || accountId;
-    if (!acc) {
-      setMerchantLinks([]);
-      return;
-    }
     try {
-      const res = await fetch(
-        `/api/merchant?accountId=${encodeURIComponent(acc)}`,
-        { cache: 'no-store' }
-      );
+      const url = acc
+        ? `/api/merchant?accountId=${encodeURIComponent(acc)}`
+        : '/api/merchant';
+      const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setMerchantLinks(data.merchantLinks || []);
+        if (Array.isArray(data.merchantLinks)) {
+          setMerchantLinks(data.merchantLinks);
+        }
       }
     } catch {
       // ignore
@@ -277,7 +279,7 @@ export default function NearVeilHomePage() {
     } else {
       setWalletNearBalance(0);
       setWalletUsdcBalance(0);
-      setMerchantLinks([]);
+      fetchMerchantLinks();
     }
   }, [accountId, refreshWalletBalance, fetchMerchantLinks]);
 
@@ -337,8 +339,14 @@ export default function NearVeilHomePage() {
   );
 
   const arInvoices = invoices.filter((inv) => inv.recordType === 'AR_INVOICE');
-  const userInvoices = arInvoices.filter((inv) => isCreatedByMe(inv) || isPaidByMe(inv));
-  const createdInvoices = userInvoices.filter(isCreatedByMe);
+  const userInvoices =
+    accountId || myCreatedInvoiceIds.length > 0 || myPaidInvoiceIds.length > 0
+      ? arInvoices.filter((inv) => isCreatedByMe(inv) || isPaidByMe(inv))
+      : arInvoices;
+  const createdInvoices =
+    accountId || myCreatedInvoiceIds.length > 0
+      ? userInvoices.filter(isCreatedByMe)
+      : userInvoices;
   const paidByMeInvoices = userInvoices.filter(isPaidByMe);
 
   const displayedInvoices =
@@ -348,17 +356,23 @@ export default function NearVeilHomePage() {
         ? paidByMeInvoices
         : userInvoices;
 
-  const userBatches = payrollBatches.filter((b) => {
-    if (accountId && b.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
-    if (myPayrollBatchIds.includes(b.batchId)) return true;
-    return false;
-  });
+  const userBatches =
+    accountId || myPayrollBatchIds.length > 0
+      ? payrollBatches.filter((b) => {
+          if (accountId && b.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
+          if (myPayrollBatchIds.includes(b.batchId)) return true;
+          return false;
+        })
+      : payrollBatches;
 
   const userPayrollRecords = invoices.filter((inv) => {
     if (inv.recordType !== 'AP_PAYROLL') return false;
-    if (accountId && inv.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
-    if (userBatches.some((b) => b.invoiceIds.includes(inv.invoiceId))) return true;
-    return false;
+    if (accountId || myPayrollBatchIds.length > 0) {
+      if (accountId && inv.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
+      if (userBatches.some((b) => b.invoiceIds.includes(inv.invoiceId))) return true;
+      return false;
+    }
+    return true;
   });
 
   const userAllRecords = [...userInvoices, ...userPayrollRecords];
@@ -448,18 +462,31 @@ export default function NearVeilHomePage() {
   };
 
   const handleQuickPayInvoice = async (inv: NearVeilInvoice) => {
+    if (!isConnected || !accountId) {
+      connect();
+      return;
+    }
     setBusyKey(`pay_${inv.invoiceId}`);
     setToast(null);
     try {
+      const receiverId = inv.freelancerAccount || inv.stealthImplicitAccount;
+      const { txHash } = await sendNearOrUsdcPayment({
+        receiverId,
+        amountUsd: inv.totalAmountUsdc,
+        tokenSymbol: 'USDC',
+        memo: inv.invoiceId,
+      });
+
       const res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'pay_invoice_1click',
           invoiceId: inv.invoiceId,
-          originAssetSymbol: 'SOL',
-          originChain: 'Solana',
-          payerAccountId: accountId || undefined,
+          originAssetSymbol: 'USDC',
+          originChain: 'NEAR Testnet',
+          payerAccountId: accountId,
+          settlementTxHash: txHash,
         }),
       });
       const data = await res.json();
@@ -524,20 +551,58 @@ export default function NearVeilHomePage() {
 
   const handleRunPrivatePayroll = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isConnected || !accountId) {
+      connect();
+      return;
+    }
     setBusyKey('run_payroll');
     setToast(null);
     try {
+      const nearTok = tokens.find((t) => t.symbol === 'NEAR');
+      const nearPriceUsd = nearTok?.priceUsd || 4.85;
+
+      // Derive deterministic 64-char hex stealth implicit accounts for each recipient
+      const batchRecipients = await Promise.all(
+        payrollRecipients.map(async (r) => {
+          const meta = r.stealthMetaAddress?.trim() || '';
+          let receiverId = '';
+          if (meta.startsWith('nv_meta_') && meta.length >= 72) {
+            receiverId = meta.slice(8, 72);
+          } else {
+            const encoded = new TextEncoder().encode(
+              `nearveil_stealth:${payPeriodLabel}:${r.referenceCode}:${Date.now()}`
+            );
+            const buf = await window.crypto.subtle.digest('SHA-256', encoded);
+            receiverId = Array.from(new Uint8Array(buf))
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('');
+          }
+          return {
+            receiverId,
+            amountUsd: Number(r.amountUsdc) || 0,
+            memo: `${payPeriodLabel} (${r.referenceCode})`,
+          };
+        })
+      );
+
+      const { txHash } = await sendBatchNearOrUsdcPayroll({
+        recipients: batchRecipients,
+        tokenSymbol: payrollTokenSymbol,
+        nearPriceUsd,
+      });
+
       const res = await fetch('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create_private_payroll',
           companyName,
-          employerAccountId: accountId || undefined,
+          employerAccountId: accountId,
           payPeriodLabel,
           fundingOriginChain: payrollOriginChain,
           fundingOriginAsset: payrollOriginAsset,
           recipients: payrollRecipients,
+          fundingTxHash: txHash,
         }),
       });
       const data = await res.json();
@@ -1358,15 +1423,29 @@ export default function NearVeilHomePage() {
 
                   <div>
                     <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
-                      Funding Currency
+                      Funding Currency (NEAR Testnet)
                     </label>
-                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2e2d27] text-sm text-[#f5f2eb]">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block h-2 w-2 rounded-full bg-[#34d399] ring-4 ring-[#34d399]/25" />
-                        <span className="font-semibold">USDC</span>
-                        <span className="text-xs text-[#8e8a7f]">(NEAR Testnet)</span>
-                      </div>
-                      <span className="text-xs text-[#34d399] font-mono font-medium">1:1 USD</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['USDC', 'NEAR'] as const).map((sym) => (
+                        <button
+                          key={sym}
+                          type="button"
+                          onClick={() => setPayrollTokenSymbol(sym)}
+                          className={`px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
+                            payrollTokenSymbol === sym
+                              ? 'bg-[#221f17] border-[#d4b06a]/60 text-[#f5ecd5]'
+                              : 'bg-[#0d0d0c] border-[#2e2d27] text-[#9c978b] hover:border-[#474337]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 text-xs font-semibold">
+                            <ChainDot chain="NEAR Testnet" />
+                            {sym === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
+                          </div>
+                          <div className="text-[10px] font-mono text-[#7c786e] mt-0.5">
+                            {sym === 'NEAR' ? 'Testnet Native' : 'Circle Native USDC'}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -1811,9 +1890,11 @@ export default function NearVeilHomePage() {
           {/* TAB: MERCHANT CHECKOUT & POS */}
           {viewRole === 'employer' && activeTab === 'merchant' && (() => {
             const normalizedAcc = accountId?.toLowerCase() || '';
-            const myStoreLinks = merchantLinks.filter(
-              (l) => l.merchantAccountId.toLowerCase() === normalizedAcc
-            );
+            const myStoreLinks = accountId
+              ? merchantLinks.filter(
+                  (l) => l.merchantAccountId.toLowerCase() === normalizedAcc
+                )
+              : merchantLinks;
             const totalMerchantRevenue = myStoreLinks.reduce(
               (sum, l) => sum + l.totalCollectedUsdc,
               0

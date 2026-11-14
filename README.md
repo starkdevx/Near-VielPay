@@ -33,7 +33,7 @@ NearVeil protects your company's confidential compensation data while keeping yo
 ### 4. How to Reconcile Payment Statuses (`PAID`, `PENDING`, `REFUNDED`)
 Every invoice and payroll item has one of three accounting statuses, backed by a permanent, timestamped digital receipt URL (`NEAR_Settlement_Tx_URL`):
 - **`PENDING`**: The invoice has been issued (Accounts Receivable / `1200`), or the payroll batch has been drafted, but funds have not yet settled.
-- **`PAID`**: The exact `USDC` amount has been verified and credited on-chain. The CSV includes the exact `Paid_Timestamp_UTC` and a clickable receipt link (`https://test.nearblocks.io/txns/...`) showing the immutable bank-equivalent confirmation.
+- **`PAID`**: The exact `USDC` amount has been verified and credited on-chain. The CSV includes the exact `Paid_Timestamp_UTC` and a clickable receipt link (`https://testnet.nearblocks.io/txns/...`) showing the immutable bank-equivalent confirmation.
 - **`REFUNDED`**: If a client overpaid, cancelled, or received a credit memo, the funds were returned to the client's origin account. Both the original payment receipt URL and the `Refund_Tx_URL` are recorded side-by-side so the net revenue impact reconciles to `$0.00`.
 
 ### 5. Reading the "Zero-Question Accountant CSV Export"
@@ -60,7 +60,7 @@ When you click **Export Accountant CSV**, the downloaded spreadsheet opens direc
 | `Debit_GL_Account` | Standard Chart of Accounts Debit mapping | `1010 - Digital Cash (USDC)` |
 | `Credit_GL_Account` | Standard Chart of Accounts Credit mapping | `4000 - Consulting & Freelance Revenue` |
 | `Client_Origin_Payment_Rail` | How the client paid (e.g., 1Click Cross-Chain or x402) | `SOL (Solana) -> USDC (NEAR) via 1Click` |
-| `NEAR_Settlement_Tx_URL` | Clickable link to permanent on-chain settlement receipt | `https://test.nearblocks.io/txns/...` |
+| `NEAR_Settlement_Tx_URL` | Clickable link to permanent on-chain settlement receipt | `https://testnet.nearblocks.io/txns/...` |
 | `Refund_Tx_URL` | Clickable link to refund receipt (if `REFUNDED`, else `N/A`) | `N/A` |
 | `Stealth_Commitment_Hash` | Cryptographic proof linking private claim to this record | `sha256:9f82a4...` |
 
@@ -72,7 +72,7 @@ When you click **Export Accountant CSV**, the downloaded spreadsheet opens direc
 
 1. **Cross-Chain Client Payments via 1Click API (`/api/oneclick`)**:
    - Integrates the [NEAR Intents 1Click API](https://docs.near-intents.org/integration/distribution-channels/1click-api/quickstart) (`/v0/tokens`, `/v0/quote`, `/v0/status`) so a client can select whatever token and chain they already hold (`SOL`, `Base USDC`, `Arbitrum USDT`, `ETH`, or `NEAR`), while the freelancer receives `USDC` on NEAR.
-   - **100% Testnet Playable**: Since the mainnet 1Click solver requires real funds, NearVeil pairs live 1Click API token/quote pricing with an **On-Chain NEAR Testnet Solver** (`rpc.testnet.near.org`) so judges can execute complete cross-chain invoice payments, refunds, and batch payrolls on **NEAR Testnet with $0 of real money**, producing real, verifiable transactions on `https://test.nearblocks.io`.
+   - **100% Testnet Playable**: Since the mainnet 1Click solver requires real funds, NearVeil pairs live 1Click API token/quote pricing with an **On-Chain NEAR Testnet Solver** (`rpc.testnet.near.org`) so judges can execute complete cross-chain invoice payments, refunds, and batch payrolls on **NEAR Testnet with $0 of real money**, producing real, verifiable transactions on `https://testnet.nearblocks.io`.
 2. **Gasless Freelancer & Employee UX via Whitelisted Meta-Transaction Relayer (`/api/relay`)**:
    - Implements the [NEAR Meta-Transaction Relayer pattern (NEP-366 / Sponsored Relayer)](https://docs.near.org/web3-apps/tutorials/meta-transactions).
    - Freelancers and employees sign actions locally with an `ed25519` keypair (`0 NEAR` balance).
@@ -101,7 +101,7 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:3000` in your browser:
-1. **Create a Gasless Invoice**: Add line items and click **Create Invoice (0 Gas via Relayer)**—watch it confirm live on NEAR Testnet with a `test.nearblocks.io` link.
+1. **Create a Gasless Invoice**: Add line items and click **Create Invoice (0 Gas via Relayer)**—watch it confirm live on NEAR Testnet with a `testnet.nearblocks.io` link.
 2. **Pay the Invoice (`/invoice/[id]`)**: Open the shareable client invoice page, choose any chain/token via the **1Click API** widget (or x402 Agent Pay), and click **Pay Invoice on Testnet**—watch the status update from `PENDING` $\rightarrow$ `PAID` (and optionally test `REFUNDED`) with clickable NEAR Testnet transaction links.
 3. **Sweep Privately (Umbra Stealth Claim)**: Click **Claim to Fresh Stealth Account (0 Gas)** to sweep the `USDC` to an unlinked NEAR Testnet address via the Relayer.
 4. **Run Private Batch Payroll (`/payroll`)**: Fund a multi-contractor payroll batch in one lump-sum transaction and generate unlinkable employee claim links.

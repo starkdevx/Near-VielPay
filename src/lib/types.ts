@@ -11,6 +11,8 @@ export interface NearVeilInvoice {
   invoiceId: string;
   recordType: 'AR_INVOICE' | 'AP_PAYROLL';
   freelancerAccount: string;
+  employerAccountId?: string | null;
+  payerAccountId?: string | null;
   clientName: string;
   clientReference: string;
   issueDateUtc: string;

@@ -29,6 +29,7 @@ import {
   LogOut,
   Building2,
   UserCheck,
+  User,
 } from 'lucide-react';
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import { useNearWallet } from '@/components/WalletProvider';
@@ -73,8 +74,9 @@ export default function NearVeilHomePage() {
   const [shareCopied, setShareCopied] = useState<boolean>(false);
   const [newlyCreatedInvoice, setNewlyCreatedInvoice] = useState<NearVeilInvoice | null>(null);
   const [myCreatedInvoiceIds, setMyCreatedInvoiceIds] = useState<string[]>([]);
-  const [showAllInvoices, setShowAllInvoices] = useState<boolean>(false);
-  const [showAllEmployeeSlips, setShowAllEmployeeSlips] = useState<boolean>(true);
+  const [myPaidInvoiceIds, setMyPaidInvoiceIds] = useState<string[]>([]);
+  const [myPayrollBatchIds, setMyPayrollBatchIds] = useState<string[]>([]);
+  const [invoiceFilterTab, setInvoiceFilterTab] = useState<'all' | 'created' | 'paid'>('all');
   const [guestEmployeeId, setGuestEmployeeId] = useState<string>('EMP-101');
   const [guestMetaAddress, setGuestMetaAddress] = useState<string>('');
 
@@ -82,7 +84,9 @@ export default function NearVeilHomePage() {
   const [invoices, setInvoices] = useState<NearVeilInvoice[]>([]);
   const [payrollBatches, setPayrollBatches] = useState<PrivatePayrollBatch[]>([]);
   const [tokens, setTokens] = useState<OneClickTokenOption[]>([]);
-  const [faucetBalance, setFaucetBalance] = useState<number>(25000);
+  const [walletNearBalance, setWalletNearBalance] = useState<number>(0);
+  const [walletUsdcBalance, setWalletUsdcBalance] = useState<number>(0);
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState<boolean>(false);
   const [stealthClaimedBalance, setStealthClaimedBalance] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -97,9 +101,7 @@ export default function NearVeilHomePage() {
   // Invoice Creator Form State
   const [clientName, setClientName] = useState<string>('Horizon AI Ventures');
   const [clientReference, setClientReference] = useState<string>('PO-2026-710');
-  const [freelancerAccount, setFreelancerAccount] = useState<string>(
-    'alex-dev.testnet'
-  );
+  const [freelancerAccount, setFreelancerAccount] = useState<string>('');
   const [dueDateUtc, setDueDateUtc] = useState<string>('2026-11-28');
   const [taxRatePercent, setTaxRatePercent] = useState<number>(0);
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
@@ -159,9 +161,17 @@ export default function NearVeilHomePage() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('nearveil_my_invoices');
-      if (saved) {
-        setMyCreatedInvoiceIds(JSON.parse(saved));
+      const savedInvoices = localStorage.getItem('nearveil_my_invoices');
+      if (savedInvoices) {
+        setMyCreatedInvoiceIds(JSON.parse(savedInvoices));
+      }
+      const savedPaid = localStorage.getItem('nearveil_my_paid_invoices');
+      if (savedPaid) {
+        setMyPaidInvoiceIds(JSON.parse(savedPaid));
+      }
+      const savedBatches = localStorage.getItem('nearveil_my_batches');
+      if (savedBatches) {
+        setMyPayrollBatchIds(JSON.parse(savedBatches));
       }
     } catch {
       // ignore
@@ -170,13 +180,22 @@ export default function NearVeilHomePage() {
 
   const fetchDashboard = useCallback(async () => {
     try {
-      const res = await fetch('/api/invoices', { cache: 'no-store' });
+      const url = accountId
+        ? `/api/invoices?accountId=${encodeURIComponent(accountId)}`
+        : '/api/invoices';
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       setTestnetInfo(data.testnetInfo || null);
       setInvoices(data.invoices || []);
       setPayrollBatches(data.payrollBatches || []);
       setTokens(data.oneClickTokens || []);
-      setFaucetBalance(data.faucetUsdcBalance ?? 25000);
+      if (accountId && data.liveWalletBalances?.accountId === accountId) {
+        setWalletNearBalance(data.liveWalletBalances.nearBalance ?? 0);
+        setWalletUsdcBalance(data.liveWalletBalances.usdcBalance ?? 0);
+      } else if (!accountId) {
+        setWalletNearBalance(0);
+        setWalletUsdcBalance(0);
+      }
       setStealthClaimedBalance(data.stealthClaimedBalanceUsdc ?? 0);
       setViewingKeyInput((prev) => prev || data.testnetInfo?.defaultViewingKey || '');
     } catch {
@@ -187,11 +206,53 @@ export default function NearVeilHomePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [accountId]);
+
+  const refreshWalletBalance = useCallback(async (targetAccount?: string) => {
+    const acc = targetAccount || accountId;
+    if (!acc) {
+      setWalletNearBalance(0);
+      setWalletUsdcBalance(0);
+      return;
+    }
+    setIsRefreshingBalance(true);
+    try {
+      const res = await fetch(`/api/wallet/balance?accountId=${encodeURIComponent(acc)}`, {
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWalletNearBalance(data.nearBalance ?? 0);
+        setWalletUsdcBalance(data.usdcBalance ?? 0);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsRefreshingBalance(false);
+    }
+  }, [accountId]);
 
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  useEffect(() => {
+    if (accountId) {
+      refreshWalletBalance(accountId);
+    } else {
+      setWalletNearBalance(0);
+      setWalletUsdcBalance(0);
+    }
+  }, [accountId, refreshWalletBalance]);
+
+  // Periodic auto-sync to keep live balances fresh
+  useEffect(() => {
+    if (!accountId) return;
+    const interval = setInterval(() => {
+      refreshWalletBalance(accountId);
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [accountId, refreshWalletBalance]);
 
   useEffect(() => {
     if (accountId) {
@@ -221,21 +282,60 @@ export default function NearVeilHomePage() {
     0
   );
 
-  const arInvoices = invoices.filter((i) => i.recordType === 'AR_INVOICE');
-  const userInvoices = arInvoices.filter((inv) => {
-    if (myCreatedInvoiceIds.includes(inv.invoiceId)) return true;
-    if (accountId && inv.freelancerAccount?.toLowerCase() === accountId.toLowerCase()) return true;
+  const isCreatedByMe = useCallback(
+    (inv: NearVeilInvoice) => {
+      if (myCreatedInvoiceIds.includes(inv.invoiceId)) return true;
+      if (accountId && inv.freelancerAccount?.toLowerCase() === accountId.toLowerCase()) return true;
+      return false;
+    },
+    [myCreatedInvoiceIds, accountId]
+  );
+
+  const isPaidByMe = useCallback(
+    (inv: NearVeilInvoice) => {
+      if (myPaidInvoiceIds.includes(inv.invoiceId)) return true;
+      if (accountId && inv.payerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
+      return false;
+    },
+    [myPaidInvoiceIds, accountId]
+  );
+
+  const arInvoices = invoices.filter((inv) => inv.recordType === 'AR_INVOICE');
+  const userInvoices = arInvoices.filter((inv) => isCreatedByMe(inv) || isPaidByMe(inv));
+  const createdInvoices = userInvoices.filter(isCreatedByMe);
+  const paidByMeInvoices = userInvoices.filter(isPaidByMe);
+
+  const displayedInvoices =
+    invoiceFilterTab === 'created'
+      ? createdInvoices
+      : invoiceFilterTab === 'paid'
+        ? paidByMeInvoices
+        : userInvoices;
+
+  const userBatches = payrollBatches.filter((b) => {
+    if (accountId && b.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
+    if (myPayrollBatchIds.includes(b.batchId)) return true;
     return false;
   });
-  const displayedInvoices = showAllInvoices ? arInvoices : userInvoices;
 
-  const paidInvoicesTotal = displayedInvoices
+  const userPayrollRecords = invoices.filter((inv) => {
+    if (inv.recordType !== 'AP_PAYROLL') return false;
+    if (accountId && inv.employerAccountId?.toLowerCase() === accountId.toLowerCase()) return true;
+    if (userBatches.some((b) => b.invoiceIds.includes(inv.invoiceId))) return true;
+    return false;
+  });
+
+  const userAllRecords = [...userInvoices, ...userPayrollRecords];
+
+  const collectedRevenueTotal = createdInvoices
     .filter((i) => i.status === 'PAID')
     .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
-  const pendingInvoicesTotal = displayedInvoices
+  const paidOutTotal = paidByMeInvoices
+    .filter((i) => i.status === 'PAID')
+    .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
+  const pendingCollectionTotal = createdInvoices
     .filter((i) => i.status === 'PENDING')
     .reduce((sum, i) => sum + i.totalAmountUsdc, 0);
-  const payrollRecords = invoices.filter((i) => i.recordType === 'AP_PAYROLL');
 
   const handleCopyInvoiceLink = (invoiceId: string) => {
     const url = `${window.location.origin}/invoice/${encodeURIComponent(invoiceId)}`;
@@ -273,7 +373,7 @@ export default function NearVeilHomePage() {
           action: 'create_invoice',
           clientName,
           clientReference,
-          freelancerAccount,
+          freelancerAccount: freelancerAccount.trim() || accountId || 'freelancer.testnet',
           dueDateUtc,
           taxRatePercent,
           lineItems,
@@ -323,14 +423,25 @@ export default function NearVeilHomePage() {
           invoiceId: inv.invoiceId,
           originAssetSymbol: 'SOL',
           originChain: 'Solana',
+          payerAccountId: accountId || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
+      const updatedPaid = [
+        inv.invoiceId,
+        ...myPaidInvoiceIds.filter((id) => id !== inv.invoiceId),
+      ];
+      setMyPaidInvoiceIds(updatedPaid);
+      try {
+        localStorage.setItem('nearveil_my_paid_invoices', JSON.stringify(updatedPaid));
+      } catch {
+        // ignore
+      }
       await fetchDashboard();
       setToast({
         type: 'success',
-        message: `${inv.invoiceId} paid! $${inv.totalAmountUsdc.toFixed(2)} USDC settled on NEAR Testnet.`,
+        message: `${inv.invoiceId} approved & settled! $${inv.totalAmountUsdc.toFixed(2)} USDC paid on NEAR Testnet.`,
         txUrl: data.invoice.settlementTxUrl,
       });
     } catch (err) {
@@ -395,6 +506,18 @@ export default function NearVeilHomePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payroll batch failed');
+      if (data.batch?.batchId) {
+        const updatedBatchIds = [
+          data.batch.batchId,
+          ...myPayrollBatchIds.filter((id) => id !== data.batch.batchId),
+        ];
+        setMyPayrollBatchIds(updatedBatchIds);
+        try {
+          localStorage.setItem('nearveil_my_batches', JSON.stringify(updatedBatchIds));
+        } catch {
+          // ignore
+        }
+      }
       await fetchDashboard();
       setToast({
         type: 'success',
@@ -405,24 +528,6 @@ export default function NearVeilHomePage() {
       setToast({
         type: 'error',
         message: (err as Error).message,
-      });
-    } finally {
-      setBusyKey(null);
-    }
-  };
-
-  const handleMintFaucet = async () => {
-    setBusyKey('faucet');
-    try {
-      await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mint_faucet_usdc' }),
-      });
-      await fetchDashboard();
-      setToast({
-        type: 'info',
-        message: 'Added +$10,000.00 free Testnet USDC to your demo balance.',
       });
     } finally {
       setBusyKey(null);
@@ -488,35 +593,81 @@ export default function NearVeilHomePage() {
           )}
         </div>
 
-        {/* Bottom Testnet Vault Card */}
+        {/* Bottom Testnet Live Balance Card */}
         <div className="hidden lg:block p-3.5 m-3.5 rounded-2xl vault-card-glow-gold space-y-2.5 relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/50 to-transparent" />
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#a39f93] flex items-center gap-1.5 font-medium">
               <Coins className="w-3.5 h-3.5 text-[#d4b06a]" />
-              Testnet USDC
+              Live Wallet Balance
             </span>
-            <button
-              type="button"
-              onClick={handleMintFaucet}
-              disabled={busyKey === 'faucet'}
-              className="px-2 py-0.5 rounded-lg bg-[#d4b06a]/15 border border-[#d4b06a]/30 text-[#e2c17d] hover:bg-[#d4b06a]/25 text-[11px] font-mono tracking-wider cursor-pointer transition"
-            >
-              + Mint $10k
-            </button>
+            <div className="flex items-center gap-1.5">
+              {isConnected && (
+                <button
+                  type="button"
+                  onClick={() => refreshWalletBalance()}
+                  disabled={isRefreshingBalance}
+                  title="Refresh live on-chain balance"
+                  className="p-1 rounded-md text-[#8e8a7f] hover:text-[#d4b06a] hover:bg-[#1f1d18] transition cursor-pointer"
+                >
+                  <RefreshCcw className={`w-3 h-3 ${isRefreshingBalance ? 'animate-spin text-[#d4b06a]' : ''}`} />
+                </button>
+              )}
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-[#14261c] border border-[#2d523c] text-[#34d399]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#34d399] animate-pulse" />
+                On-Chain
+              </span>
+            </div>
           </div>
-          <div className="text-2xl font-serif text-gradient-gold tabular-nums tracking-tight">
-            ${faucetBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-          </div>
-          <div className="pt-2.5 border-t border-[#2e2b24] flex items-center justify-between text-xs">
-            <span className="text-[#8e8a7f]">Private Claimed</span>
-            <span className="font-semibold text-gradient-emerald tabular-nums">
-              ${stealthClaimedBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-          <div className="text-[11px] text-[#8e8a7f] flex items-center gap-1.5">
-            <Zap className="w-3 h-3 text-[#d4b06a] shrink-0" />
-            Gas fees sponsored ($0.00)
+
+          {isConnected && accountId ? (
+            <div className="space-y-1.5">
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                  Testnet USDC
+                </div>
+                <div className="text-2xl font-serif text-gradient-gold tabular-nums tracking-tight font-semibold">
+                  ${walletUsdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-xs font-sans text-[#8e8a7f] font-normal ml-1">USDC</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-[#2e2b24] flex items-center justify-between text-xs">
+                <span className="text-[#8e8a7f]">NEAR Native</span>
+                <span className="font-mono text-[#f5f2eb] tabular-nums font-semibold">
+                  {walletNearBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} NEAR
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="py-2 text-center space-y-2">
+              <div className="text-xs text-[#8e8a7f]">Connect wallet to view live on-chain balance</div>
+              <button
+                type="button"
+                onClick={connect}
+                className="w-full py-1 px-2.5 rounded-lg bg-[#221f17] hover:bg-[#2b271d] border border-[#d4b06a]/40 text-[#f5dfa8] text-xs font-semibold transition cursor-pointer"
+              >
+                Connect Wallet
+              </button>
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-[#2e2b24] space-y-1">
+            <div className="text-[11px] text-[#8e8a7f] flex items-center gap-1.5">
+              <Zap className="w-3 h-3 text-[#d4b06a] shrink-0" />
+              Gas fees sponsored ($0.00)
+            </div>
+            {isConnected && (
+              <a
+                href="https://testnet.ref.finance/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-[#d4b06a] hover:underline flex items-center gap-1 font-mono pt-0.5"
+              >
+                <span>Get Testnet USDC (Ref Faucet)</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
           </div>
         </div>
       </aside>
@@ -564,21 +715,42 @@ export default function NearVeilHomePage() {
               </span>
 
               {isConnected && accountId ? (
-                <div className="pl-3 pr-1.5 py-1 rounded-xl bg-[#171612] border border-[#d4b06a]/40 shadow-[0_0_18px_-3px_rgba(212,176,106,0.25)] flex items-center gap-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[#34d399]" />
-                    <span className="text-xs font-mono text-[#f5f2eb] max-w-[160px] truncate">
-                      {accountId}
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#141410] border border-[#2d2c24] text-xs font-mono shadow-inner">
+                    <span className="text-[#34d399] font-medium tabular-nums">
+                      {walletNearBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} NEAR
+                    </span>
+                    <span className="text-[#3e3b32]">·</span>
+                    <span className="text-[#f5dfa8] font-medium tabular-nums">
+                      ${walletUsdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={disconnect}
-                    title="Disconnect Wallet"
-                    className="p-1.5 rounded-lg text-[#8e8a7f] hover:text-[#f87171] hover:bg-[#2a1717] transition cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
+
+                  <div className="pl-3 pr-1.5 py-1 rounded-xl bg-[#171612] border border-[#d4b06a]/40 shadow-[0_0_18px_-3px_rgba(212,176,106,0.25)] flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-[#34d399]" />
+                      <span className="text-xs font-mono text-[#f5f2eb] max-w-[140px] truncate" title={accountId}>
+                        {accountId}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => refreshWalletBalance()}
+                      disabled={isRefreshingBalance}
+                      title="Refresh live on-chain balance"
+                      className="p-1.5 rounded-lg text-[#8e8a7f] hover:text-[#d4b06a] hover:bg-[#221f17] transition cursor-pointer"
+                    >
+                      <RefreshCcw className={`w-3.5 h-3.5 ${isRefreshingBalance ? 'animate-spin text-[#d4b06a]' : ''}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={disconnect}
+                      title="Disconnect Wallet"
+                      className="p-1.5 rounded-lg text-[#8e8a7f] hover:text-[#f87171] hover:bg-[#2a1717] transition cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -661,18 +833,18 @@ export default function NearVeilHomePage() {
                 </button>
               </div>
 
-              {/* 3 Visual KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* 4 Distinctive KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="vault-card-glow-emerald rounded-2xl p-5 flex items-start justify-between relative overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#34d399]/60 to-transparent" />
                   <div>
-                    <div className="text-xs text-[#a39f93] uppercase tracking-wider font-mono">Collected (USDC)</div>
-                    <div className="text-3xl sm:text-4xl font-serif text-gradient-emerald mt-2 tabular-nums">
-                      ${paidInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <div className="text-xs text-[#a39f93] uppercase tracking-wider font-mono">Collected (Freelancer)</div>
+                    <div className="text-2xl sm:text-3xl font-serif text-gradient-emerald mt-2 tabular-nums">
+                      ${collectedRevenueTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs text-[#34d399] mt-2.5 flex items-center gap-1.5 font-medium">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Settled 1:1 in USD
+                      Settled into Stealth Vault
                     </div>
                   </div>
                   <div className="h-10 w-10 rounded-xl bg-[#14261c] border border-[#2d523c] flex items-center justify-center text-[#34d399] shadow-[0_0_12px_rgba(52,211,153,0.2)]">
@@ -680,16 +852,33 @@ export default function NearVeilHomePage() {
                   </div>
                 </div>
 
+                <div className="vault-card-glow-emerald rounded-2xl p-5 flex items-start justify-between relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#34d399]/60 to-transparent" />
+                  <div>
+                    <div className="text-xs text-[#a39f93] uppercase tracking-wider font-mono">Paid / Approved (Client)</div>
+                    <div className="text-2xl sm:text-3xl font-serif text-gradient-emerald mt-2 tabular-nums">
+                      ${paidOutTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-[#34d399] mt-2.5 flex items-center gap-1.5 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      {paidByMeInvoices.length} approved invoice(s)
+                    </div>
+                  </div>
+                  <div className="h-10 w-10 rounded-xl bg-[#14261c] border border-[#2d523c] flex items-center justify-center text-[#34d399] shadow-[0_0_12px_rgba(52,211,153,0.2)]">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                </div>
+
                 <div className="vault-card-glow-gold rounded-2xl p-5 flex items-start justify-between relative overflow-hidden">
                   <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/60 to-transparent" />
                   <div>
                     <div className="text-xs text-[#a39f93] uppercase tracking-wider font-mono">Awaiting Payment</div>
-                    <div className="text-3xl sm:text-4xl font-serif text-gradient-amber mt-2 tabular-nums">
-                      ${pendingInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <div className="text-2xl sm:text-3xl font-serif text-gradient-amber mt-2 tabular-nums">
+                      ${pendingCollectionTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs text-[#fbbf24] mt-2.5 flex items-center gap-1.5 font-medium">
                       <Clock className="w-3.5 h-3.5" />
-                      {arInvoices.filter((i) => i.status === 'PENDING').length} open invoice(s)
+                      {createdInvoices.filter((i) => i.status === 'PENDING').length} open invoice(s)
                     </div>
                   </div>
                   <div className="h-10 w-10 rounded-xl bg-[#282114] border border-[#524122] flex items-center justify-center text-[#fbbf24] shadow-[0_0_12px_rgba(251,191,36,0.2)]">
@@ -701,7 +890,7 @@ export default function NearVeilHomePage() {
                   <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#818cf8]/60 to-transparent" />
                   <div>
                     <div className="text-xs text-[#a39f93] uppercase tracking-wider font-mono">Gas Fees You Paid</div>
-                    <div className="text-3xl sm:text-4xl font-serif text-gradient-purple mt-2 tabular-nums">
+                    <div className="text-2xl sm:text-3xl font-serif text-gradient-purple mt-2 tabular-nums">
                       $0.00
                     </div>
                     <div className="text-xs text-[#c084fc] mt-2.5 flex items-center gap-1.5 font-medium">
@@ -721,45 +910,66 @@ export default function NearVeilHomePage() {
                   <span className="h-6 w-6 rounded-full bg-[#1e1d17] border border-[#d4b06a]/40 text-[#f5dfa8] font-mono text-[11px] font-semibold flex items-center justify-center shadow-sm">
                     1
                   </span>
-                  <span>Create &amp; share invoice link</span>
+                  <span>Freelancer creates gasless invoice</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-[#5e5b51] hidden sm:block" />
                 <div className="flex items-center gap-2.5">
                   <span className="h-6 w-6 rounded-full bg-[#1e1d17] border border-[#d4b06a]/40 text-[#f5dfa8] font-mono text-[11px] font-semibold flex items-center justify-center shadow-sm">
                     2
                   </span>
-                  <span>Client pays in SOL, Base, ETH, or NEAR</span>
+                  <span>Client approves &amp; pays from wallet or cross-chain</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-[#5e5b51] hidden sm:block" />
                 <div className="flex items-center gap-2.5">
                   <span className="h-6 w-6 rounded-full bg-[#16241b] border border-[#34d399]/40 text-[#a7f3d0] font-mono text-[11px] font-semibold flex items-center justify-center shadow-sm">
                     3
                   </span>
-                  <span>Sweep USDC privately with $0 gas</span>
+                  <span>Both see verified on-chain receipt &amp; status</span>
                 </div>
               </div>
 
-              {/* Invoices List */}
+              {/* Invoices List with Role Tabs */}
               <div className="vault-card rounded-2xl overflow-hidden border border-[#2e2c26] shadow-[0_12px_32px_-12px_rgba(0,0,0,0.8)]">
                 <div className="px-6 py-4 border-b border-[#262520] bg-gradient-to-r from-[#171614] via-[#141412] to-[#171614] flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <h2 className="font-semibold text-sm text-gradient-gold">
-                      My Invoices ({displayedInvoices.length})
-                    </h2>
-                    {arInvoices.length > userInvoices.length && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllInvoices(!showAllInvoices)}
-                        className="text-[11px] text-[#a39f93] hover:text-[#f5f2eb] underline cursor-pointer"
-                      >
-                        {showAllInvoices
-                          ? 'Show Only My Invoices'
-                          : `Show Demo Invoices (${arInvoices.length})`}
-                      </button>
-                    )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceFilterTab('all')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                        invoiceFilterTab === 'all'
+                          ? 'bg-[#262115] text-[#f5dfa8] border border-[#d4b06a]/50 shadow-[0_0_12px_rgba(212,176,106,0.25)]'
+                          : 'bg-[#151412] text-[#8e8a7f] hover:text-[#f5f2eb] border border-[#272622]'
+                      }`}
+                    >
+                      All Invoices ({userInvoices.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceFilterTab('created')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                        invoiceFilterTab === 'created'
+                          ? 'bg-[#262115] text-[#f5dfa8] border border-[#d4b06a]/50 shadow-[0_0_12px_rgba(212,176,106,0.25)]'
+                          : 'bg-[#151412] text-[#8e8a7f] hover:text-[#f5f2eb] border border-[#272622]'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5 text-[#d4b06a]" />
+                      Issued by Me ({createdInvoices.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceFilterTab('paid')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                        invoiceFilterTab === 'paid'
+                          ? 'bg-[#16291e] text-[#a7f3d0] border border-[#34d399]/50 shadow-[0_0_12px_rgba(52,211,153,0.25)]'
+                          : 'bg-[#151412] text-[#8e8a7f] hover:text-[#f5f2eb] border border-[#272622]'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#34d399]" />
+                      Paid / Approved by Me ({paidByMeInvoices.length})
+                    </button>
                   </div>
-                  <span className="text-xs text-[#8e8a7f] font-mono">
-                    Share invoice link with client to receive payment
+                  <span className="text-xs text-[#8e8a7f] font-mono hidden sm:inline">
+                    Freelancer &amp; Client Statement View
                   </span>
                 </div>
 
@@ -774,152 +984,219 @@ export default function NearVeilHomePage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-base text-[#f5f2eb]">
-                        No Invoices Created Yet
+                        {!isConnected
+                          ? 'Connect Wallet to View Invoices'
+                          : invoiceFilterTab === 'created'
+                            ? 'No Invoices Issued Yet'
+                            : invoiceFilterTab === 'paid'
+                              ? 'No Invoices Paid Yet'
+                              : 'No Invoices Found'}
                       </h3>
                       <p className="text-xs text-[#8e8a7f] mt-1.5 leading-relaxed">
-                        Create an invoice and send the link to your client. They can open it to pay you directly from their wallet on any chain with zero gas fees.
+                        {!isConnected
+                          ? 'Connect your NEAR wallet to view invoices you have issued as a freelancer or paid as a client.'
+                          : invoiceFilterTab === 'created'
+                            ? `No invoices issued by ${accountId || 'your wallet'} yet. Click below to create your first gasless invoice.`
+                            : invoiceFilterTab === 'paid'
+                              ? `No invoices have been paid by ${accountId || 'your wallet'} yet. Invoices you pay will appear here with on-chain receipts.`
+                              : `No invoices recorded for ${accountId || 'your wallet'} yet.`}
                       </p>
                     </div>
                     <div className="flex items-center justify-center gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowCreateModal(true)}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] text-[#0a0a09] text-xs font-bold shadow-[0_0_18px_rgba(212,176,106,0.3)] transition cursor-pointer"
-                      >
-                        + Create First Invoice
-                      </button>
-                      {arInvoices.length > 0 && !showAllInvoices && (
+                      {isConnected ? (
                         <button
                           type="button"
-                          onClick={() => setShowAllInvoices(true)}
-                          className="px-3.5 py-2 rounded-xl bg-[#1a1a17] hover:bg-[#22211d] border border-[#2e2c26] text-[#d5d0c5] text-xs font-medium transition cursor-pointer"
+                          onClick={() => setShowCreateModal(true)}
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] text-[#0a0a09] text-xs font-bold shadow-[0_0_18px_rgba(212,176,106,0.3)] transition cursor-pointer"
                         >
-                          View Demo Invoices ({arInvoices.length})
+                          + Create First Invoice
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={connect}
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] text-[#0a0a09] text-xs font-bold shadow-[0_0_18px_rgba(212,176,106,0.3)] transition cursor-pointer flex items-center gap-2"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          Connect NEAR Wallet
                         </button>
                       )}
                     </div>
                   </div>
                 ) : (
                   <div className="divide-y divide-[#22211d]">
-                    {displayedInvoices.map((inv) => (
-                      <div
-                        key={inv.invoiceId}
-                        className="p-5 hover:bg-[#1a1a17]/80 transition-colors flex flex-wrap items-center justify-between gap-4"
-                      >
-                        <div className="min-w-0 space-y-1.5">
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            <Link
-                              href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                              className="font-semibold text-[#f5f2eb] hover:text-[#d4b06a] transition inline-flex items-center gap-1"
-                            >
-                              {inv.clientName}
-                              <ArrowUpRight className="w-3.5 h-3.5 text-[#6d695f]" />
-                            </Link>
-                            <span className="text-[11px] font-mono text-[#736f65] bg-[#1a1a17] px-2 py-0.5 rounded border border-[#272622]">
-                              {inv.invoiceId}
-                            </span>
-                            {inv.status === 'PAID' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#17261d] text-[#77b28c] border border-[#2a4534] text-xs font-medium">
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c]" />
-                                Paid &amp; Settled
-                              </span>
-                            )}
-                            {inv.status === 'PENDING' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#261f14] text-[#d9a05b] border border-[#42341d] text-xs font-medium">
-                                <Clock className="w-3 h-3 text-[#d9a05b]" />
-                                Awaiting Client Payment
-                              </span>
-                            )}
-                            {inv.status === 'REFUNDED' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#281817] text-[#d97b73] border border-[#492826] text-xs font-medium">
-                                <RefreshCcw className="w-3 h-3" />
-                                Refunded
-                              </span>
-                            )}
-                          </div>
+                    {displayedInvoices.map((inv) => {
+                      const createdByMe = isCreatedByMe(inv);
+                      const paidByMe = isPaidByMe(inv);
 
-                          <div className="text-xs text-[#8e8a7f] flex flex-wrap items-center gap-2.5">
-                            <span>Due {inv.dueDateUtc}</span>
-                            <span className="text-[#3e3c36]">·</span>
-                            <span className="truncate max-w-md">
-                              {inv.lineItems.map((l) => l.description).join(', ')}
-                            </span>
-                            {inv.settlementTxUrl && (
-                              <>
-                                <span className="text-[#3e3c36]">·</span>
-                                <a
-                                  href={inv.settlementTxUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[#d4b06a] hover:underline"
-                                >
-                                  Receipt
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                      return (
+                        <div
+                          key={inv.invoiceId}
+                          className="p-5 hover:bg-[#1a1a17]/80 transition-colors flex flex-wrap items-center justify-between gap-4"
+                        >
+                          <div className="min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2.5">
+                              <Link
+                                href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
+                                className="font-semibold text-base text-[#f5f2eb] hover:text-[#d4b06a] transition inline-flex items-center gap-1.5"
+                              >
+                                {inv.clientName}
+                                <ArrowUpRight className="w-4 h-4 text-[#8e8a7f]" />
+                              </Link>
 
-                        <div className="flex flex-wrap items-center gap-2.5">
-                          <div className="text-right mr-2">
-                            <div className="text-lg font-serif text-[#f5f2eb] tabular-nums">
-                              ${inv.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              <span className="text-[11px] font-mono text-[#8e8a7f] bg-[#1a1a17] px-2.5 py-0.5 rounded-lg border border-[#272622]">
+                                {inv.invoiceId}
+                              </span>
+
+                              {/* Role Badges */}
+                              {createdByMe && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider bg-[#262115] border border-[#d4b06a]/40 text-[#f5dfa8] inline-flex items-center gap-1">
+                                  <User className="w-3 h-3 text-[#d4b06a]" />
+                                  Issued by You
+                                </span>
+                              )}
+                              {paidByMe && (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider bg-[#14261c] border border-[#34d399]/40 text-[#a7f3d0] inline-flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-[#34d399]" />
+                                  Paid by You
+                                </span>
+                              )}
+
+                              {/* Status Badges */}
+                              {inv.status === 'PAID' && (
+                                <span className="badge-emerald-glow inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[#34d399] animate-pulse" />
+                                  Approved &amp; Settled
+                                </span>
+                              )}
+                              {inv.status === 'PENDING' && (
+                                <span className="badge-gold-glow inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold">
+                                  <Clock className="w-3.5 h-3.5 text-[#fbbf24]" />
+                                  Awaiting Client Payment
+                                </span>
+                              )}
+                              {inv.status === 'REFUNDED' && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#281817] text-[#d97b73] border border-[#492826] text-xs font-medium">
+                                  <RefreshCcw className="w-3 h-3" />
+                                  Refunded
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[10px] font-mono uppercase tracking-wider text-[#6d695f]">
-                              USDC
+
+                            <div className="text-xs text-[#8e8a7f] flex flex-wrap items-center gap-2">
+                              <span>Due {inv.dueDateUtc}</span>
+                              <span className="text-[#3e3c36]">·</span>
+                              <span>
+                                Recipient:{' '}
+                                <strong className="text-[#f5dfa8] font-mono">
+                                  {inv.freelancerAccount}
+                                </strong>
+                              </span>
+                              {inv.payerAccountId && (
+                                <>
+                                  <span className="text-[#3e3c36]">·</span>
+                                  <span>
+                                    Payer:{' '}
+                                    <strong className="text-[#a7f3d0] font-mono">
+                                      {inv.payerAccountId}
+                                    </strong>
+                                  </span>
+                                </>
+                              )}
+                              <span className="text-[#3e3c36]">·</span>
+                              <span className="truncate max-w-sm text-[#736f65]">
+                                {inv.lineItems.map((l) => l.description).join(', ')}
+                              </span>
+                              {inv.settlementTxUrl && (
+                                <>
+                                  <span className="text-[#3e3c36]">·</span>
+                                  <a
+                                    href={inv.settlementTxUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[#d4b06a] hover:underline"
+                                  >
+                                    Receipt
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleCopyInvoiceLink(inv.invoiceId)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition cursor-pointer"
-                          >
-                            {copiedId === inv.invoiceId ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-[#77b28c]" />
-                                Copied Link
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 text-[#736f65]" />
-                                Share Link
-                              </>
-                            )}
-                          </button>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="text-right mr-1">
+                              <div className="text-xl font-serif text-[#f5f2eb] tabular-nums font-semibold">
+                                ${inv.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                              </div>
+                              <div className="text-[10px] font-mono uppercase tracking-wider text-[#6d695f]">
+                                USDC
+                              </div>
+                            </div>
 
-                          <Link
-                            href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition"
-                          >
-                            Open
-                            <ArrowRight className="w-3.5 h-3.5 text-[#736f65]" />
-                          </Link>
-
-                          {inv.status === 'PAID' && !inv.claimedToStealthWallet && (
                             <button
                               type="button"
-                              disabled={busyKey === `claim_${inv.invoiceId}`}
-                              onClick={() => handleQuickStealthClaim(inv)}
-                              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold transition cursor-pointer"
+                              onClick={() => handleCopyInvoiceLink(inv.invoiceId)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition cursor-pointer"
+                              title="Copy invoice link to share"
                             >
-                              <Lock className="w-3 h-3" />
-                              {busyKey === `claim_${inv.invoiceId}`
-                                ? 'Claiming...'
-                                : 'Sweep Privately ($0 Gas)'}
+                              {copiedId === inv.invoiceId ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-[#34d399]" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-[#736f65]" />
+                                  Share Link
+                                </>
+                              )}
                             </button>
-                          )}
 
-                          {inv.claimedToStealthWallet && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1a1a17] border border-[#272622] text-[#8e8a7f] text-xs">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#77b28c]" />
-                              Claimed
-                            </span>
-                          )}
+                            {inv.status === 'PENDING' && (
+                              <button
+                                type="button"
+                                disabled={busyKey === `pay_${inv.invoiceId}`}
+                                onClick={() => handleQuickPayInvoice(inv)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] text-[#0a0a09] text-xs font-bold transition cursor-pointer shadow-[0_0_12px_rgba(212,176,106,0.3)]"
+                              >
+                                <Wallet className="w-3.5 h-3.5" />
+                                {busyKey === `pay_${inv.invoiceId}` ? 'Paying...' : 'Pay Invoice'}
+                              </button>
+                            )}
+
+                            <Link
+                              href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition"
+                            >
+                              Open
+                              <ArrowRight className="w-3.5 h-3.5 text-[#736f65]" />
+                            </Link>
+
+                            {inv.status === 'PAID' && createdByMe && !inv.claimedToStealthWallet && (
+                              <button
+                                type="button"
+                                disabled={busyKey === `claim_${inv.invoiceId}`}
+                                onClick={() => handleQuickStealthClaim(inv)}
+                                className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold transition cursor-pointer"
+                              >
+                                <Lock className="w-3 h-3" />
+                                {busyKey === `claim_${inv.invoiceId}`
+                                  ? 'Claiming...'
+                                  : 'Sweep ($0 Gas)'}
+                              </button>
+                            )}
+
+                            {inv.claimedToStealthWallet && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#14261c] border border-[#2d523c] text-[#34d399] text-xs font-medium">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#34d399]" />
+                                Swept to Vault
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1131,6 +1408,18 @@ export default function NearVeilHomePage() {
                         ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
                         <span className="text-sm font-sans text-[#8e8a7f] font-normal">USDC</span>
                       </div>
+                      {isConnected && (
+                        <div className="text-[11px] text-[#8e8a7f] mt-1 font-mono">
+                          Wallet balance:{' '}
+                          <span className="text-[#f5f2eb] font-semibold">
+                            ${walletUsdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
+                          </span>{' '}
+                          ·{' '}
+                          <span className="text-[#34d399]">
+                            {walletNearBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} NEAR
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -1150,16 +1439,18 @@ export default function NearVeilHomePage() {
                 <div className="lg:col-span-5 space-y-4">
                   <div className="vault-card rounded-2xl p-5 space-y-3 border border-[#2e2d26]">
                     <h2 className="font-semibold text-sm text-gradient-gold">
-                      Recent Payroll Runs ({payrollBatches.length})
+                      Recent Payroll Runs ({userBatches.length})
                     </h2>
 
-                    {payrollBatches.length === 0 ? (
+                    {userBatches.length === 0 ? (
                       <p className="text-xs text-[#6d695f] py-4">
-                        No payroll runs yet. Click &ldquo;Pay Team Privately&rdquo; to execute your first confidential payroll batch on NEAR Testnet.
+                        {isConnected
+                          ? `No payroll runs yet for ${accountId}. Click "Pay Team Privately" to execute your first confidential payroll batch on NEAR Testnet.`
+                          : 'Connect your NEAR wallet and click "Pay Team Privately" to execute your first confidential payroll batch.'}
                       </p>
                     ) : (
                       <div className="space-y-2.5">
-                        {payrollBatches.map((batch) => (
+                        {userBatches.map((batch) => (
                           <div
                             key={batch.batchId}
                             className="p-3.5 rounded-xl bg-[#11110e] border border-[#272622] hover:border-[#d4b06a]/40 space-y-1.5 transition"
@@ -1193,18 +1484,18 @@ export default function NearVeilHomePage() {
                     )}
                   </div>
 
-                  {payrollRecords.length > 0 && (
+                  {userPayrollRecords.length > 0 && (
                     <div className="vault-card-glow-emerald rounded-2xl p-5 space-y-3">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-sm text-gradient-emerald">
-                          Auto-Disbursed Payouts ({payrollRecords.length})
+                          Auto-Disbursed Payouts ({userPayrollRecords.length})
                         </h3>
                         <span className="badge-emerald-glow px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider">
                           Zero Claim Needed
                         </span>
                       </div>
                       <div className="space-y-2.5">
-                        {payrollRecords.map((slip) => (
+                        {userPayrollRecords.map((slip) => (
                           <div
                             key={slip.invoiceId}
                             className="p-3 rounded-xl bg-[#101512] border border-[#1e3325] hover:border-[#34d399]/40 flex items-center justify-between gap-2 transition"
@@ -1273,7 +1564,7 @@ export default function NearVeilHomePage() {
                 <a
                   href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(
                     viewingKeyInput || testnetInfo?.defaultViewingKey || ''
-                  )}`}
+                  )}${accountId ? `&employer=${encodeURIComponent(accountId)}` : ''}`}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e9d5ff] via-[#c084fc] to-[#9333ea] hover:from-[#f3e8ff] hover:to-[#a855f7] text-[#0a0a09] font-bold text-sm shadow-[0_0_22px_rgba(192,132,252,0.35)] transition-all cursor-pointer"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-[#0a0a09]" />
@@ -1336,7 +1627,16 @@ export default function NearVeilHomePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#22211d]">
-                      {invoices.map((rec) => (
+                      {userAllRecords.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-12 text-center text-xs text-[#8e8a7f]">
+                            {isConnected
+                              ? `No transactions recorded yet for ${accountId}.`
+                              : 'Connect your NEAR wallet to view your financial records.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        userAllRecords.map((rec) => (
                         <tr key={rec.invoiceId} className="hover:bg-[#1a1916] transition-colors">
                           <td className="py-3.5 px-4 font-mono font-medium text-[#f5f2eb]">
                             <Link
@@ -1396,7 +1696,7 @@ export default function NearVeilHomePage() {
                             </a>
                           </td>
                         </tr>
-                      ))}
+                      )))}
                     </tbody>
                   </table>
                 </div>
@@ -1408,16 +1708,15 @@ export default function NearVeilHomePage() {
           {viewRole === 'employee' && (() => {
             const activeEmployeeMeta =
               (isConnected && stealthMetaAddress) || guestMetaAddress;
-            const matchingSlips = payrollRecords.filter(
+            const matchingSlips = invoices.filter(
               (slip) =>
+                slip.recordType === 'AP_PAYROLL' &&
                 slip.stealthMetaAddress &&
                 activeEmployeeMeta &&
                 slip.stealthMetaAddress.toLowerCase() ===
                   activeEmployeeMeta.toLowerCase()
             );
-            const displayedSlips = showAllEmployeeSlips
-              ? payrollRecords
-              : matchingSlips;
+            const displayedSlips = matchingSlips;
             const employeeTotalUsdc = displayedSlips.reduce(
               (sum, s) => sum + s.totalAmountUsdc,
               0
@@ -1544,37 +1843,16 @@ export default function NearVeilHomePage() {
                 <div className="vault-card rounded-2xl overflow-hidden border border-[#1f3627] shadow-[0_12px_32px_-12px_rgba(0,0,0,0.8)]">
                   <div className="px-6 py-4 border-b border-[#1f3627] bg-gradient-to-r from-[#121c15] via-[#0f1712] to-[#121c15] flex flex-wrap items-center justify-between gap-3">
                     <h2 className="font-semibold text-sm text-gradient-emerald">
-                      Paychecks ({displayedSlips.length})
+                      My Paychecks ({displayedSlips.length})
                     </h2>
-                    <div className="p-1 rounded-lg bg-[#0b120d] border border-[#1d3324] flex items-center gap-1 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setShowAllEmployeeSlips(false)}
-                        className={`px-3 py-1 rounded-md cursor-pointer transition ${
-                          !showAllEmployeeSlips
-                            ? 'bg-[#18281e] text-[#34d399] font-semibold shadow-sm'
-                            : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
-                        }`}
-                      >
-                        My Meta Only ({matchingSlips.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowAllEmployeeSlips(true)}
-                        className={`px-3 py-1 rounded-md cursor-pointer transition ${
-                          showAllEmployeeSlips
-                            ? 'bg-[#1f1e16] text-[#e2c17d] font-semibold shadow-sm'
-                            : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
-                        }`}
-                      >
-                        All Testnet Paychecks ({payrollRecords.length})
-                      </button>
-                    </div>
+                    <span className="text-xs text-[#8e8a7f] font-mono">
+                      Confidential stealth payouts
+                    </span>
                   </div>
 
                   {displayedSlips.length === 0 ? (
                     <div className="p-12 text-center text-sm text-[#8e8a7f]">
-                      No paychecks matched your Stealth Meta-Address yet. Copy your Meta-Address above and run a batch in Employer View, or switch to &ldquo;All Testnet Paychecks&rdquo;.
+                      No paychecks matched your Stealth Meta-Address yet. Copy your Stealth Meta-Address above and share it with your employer during payroll setup.
                     </div>
                   ) : (
                     <div className="divide-y divide-[#18281d]">
@@ -1715,12 +1993,13 @@ export default function NearVeilHomePage() {
                 </div>
                 <div>
                   <label className="block text-xs text-[#8e8a7f] mb-1">
-                    Your Name / ID
+                    Your NEAR Account / ID
                   </label>
                   <input
                     type="text"
                     value={freelancerAccount}
                     onChange={(e) => setFreelancerAccount(e.target.value)}
+                    placeholder="e.g. yourname.testnet"
                     className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                   />
                 </div>

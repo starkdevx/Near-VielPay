@@ -5,6 +5,7 @@ import { readLedger, writeLedger } from '@/lib/store';
 import {
   ALLOWED_RELAYER_METHODS,
   executeRelayedContractCall,
+  fetchLiveAccountBalances,
   getTestnetConfig,
 } from '@/lib/near-testnet';
 import {
@@ -48,7 +49,16 @@ export async function GET(req: NextRequest) {
   const viewingKey = searchParams.get('viewingKey') || config.defaultViewingKey;
 
   if (format === 'csv') {
-    const csvContent = generateAccountantCsv(ledger.invoices, viewingKey);
+    const employer = searchParams.get('employer');
+    const recordsToExport = employer
+      ? ledger.invoices.filter(
+          (inv) =>
+            inv.freelancerAccount?.toLowerCase() === employer.toLowerCase() ||
+            inv.employerAccountId?.toLowerCase() === employer.toLowerCase() ||
+            inv.payerAccountId?.toLowerCase() === employer.toLowerCase()
+        )
+      : ledger.invoices;
+    const csvContent = generateAccountantCsv(recordsToExport, viewingKey);
     return new NextResponse(csvContent, {
       status: 200,
       headers: {
@@ -58,6 +68,12 @@ export async function GET(req: NextRequest) {
         'Cache-Control': 'no-store',
       },
     });
+  }
+
+  const accountId = searchParams.get('accountId');
+  let liveWalletBalances = null;
+  if (accountId) {
+    liveWalletBalances = await fetchLiveAccountBalances(accountId);
   }
 
   const { tokens, liveApiConnected } = await fetchOneClickTokens();
@@ -84,7 +100,7 @@ export async function GET(req: NextRequest) {
       allowedRelayerMethods: Array.from(ALLOWED_RELAYER_METHODS),
       oneClickLivePricing: liveApiConnected,
     },
-    faucetUsdcBalance: ledger.faucetUsdcBalance,
+    liveWalletBalances,
     stealthClaimedBalanceUsdc: ledger.stealthClaimedBalanceUsdc,
     viewingKeyValid,
     oneClickTokens: tokens,
@@ -177,6 +193,7 @@ export async function POST(req: NextRequest) {
         invoiceId,
         recordType: 'AR_INVOICE',
         freelancerAccount,
+        payerAccountId: null,
         clientName,
         clientReference,
         issueDateUtc,
@@ -254,6 +271,7 @@ export async function POST(req: NextRequest) {
       const invoiceId = String(body.invoiceId || '');
       const originAssetSymbol = String(body.originAssetSymbol || 'SOL');
       const originChain = String(body.originChain || 'Solana');
+      const payerAccountId = body.payerAccountId ? String(body.payerAccountId).trim() : null;
       const invoice = ledger.invoices.find((i) => i.invoiceId === invoiceId);
 
       if (!invoice) {
@@ -280,14 +298,13 @@ export async function POST(req: NextRequest) {
 
       invoice.status = 'PAID';
       invoice.paidTimestampUtc = paidAtUtc;
+      if (payerAccountId) {
+        invoice.payerAccountId = payerAccountId;
+      }
       invoice.selectedOriginAsset = originAssetSymbol;
       invoice.selectedOriginChain = originChain;
       invoice.settlementTxHash = relayResult.txHash;
       invoice.settlementTxUrl = relayResult.txUrl;
-      ledger.faucetUsdcBalance = Math.max(
-        0,
-        Number((ledger.faucetUsdcBalance - invoice.totalAmountUsdc).toFixed(2))
-      );
       writeLedger(ledger);
 
       return NextResponse.json({
@@ -320,9 +337,6 @@ export async function POST(req: NextRequest) {
       invoice.refundedTimestampUtc = refundedAtUtc;
       invoice.refundTxHash = relayResult.txHash;
       invoice.refundTxUrl = relayResult.txUrl;
-      ledger.faucetUsdcBalance = Number(
-        (ledger.faucetUsdcBalance + invoice.totalAmountUsdc).toFixed(2)
-      );
       writeLedger(ledger);
 
       return NextResponse.json({
@@ -465,6 +479,7 @@ export async function POST(req: NextRequest) {
           invoiceId: slipId,
           recordType: 'AP_PAYROLL',
           freelancerAccount: bundle.stealthImplicitAccount,
+          employerAccountId: employerAccountId || null,
           clientName: String(r.contractorName || `Contractor #${i + 1}`),
           clientReference: String(r.referenceCode || `EMP-${i + 101}`),
           issueDateUtc: issueDate,
@@ -549,10 +564,6 @@ export async function POST(req: NextRequest) {
       };
 
       ledger.payrollBatches.unshift(batchRecord);
-      ledger.faucetUsdcBalance = Math.max(
-        0,
-        Number((ledger.faucetUsdcBalance - totalBatchUsdc).toFixed(2))
-      );
       ledger.stealthClaimedBalanceUsdc = Number(
         (ledger.stealthClaimedBalanceUsdc + totalBatchUsdc).toFixed(2)
       );
@@ -562,15 +573,6 @@ export async function POST(req: NextRequest) {
         batch: batchRecord,
         slips: createdSlips,
         relayResult,
-      });
-    }
-
-    // 7. Mint Free Testnet USDC Faucet
-    if (action === 'mint_faucet_usdc') {
-      ledger.faucetUsdcBalance = Number((ledger.faucetUsdcBalance + 10000).toFixed(2));
-      writeLedger(ledger);
-      return NextResponse.json({
-        faucetUsdcBalance: ledger.faucetUsdcBalance,
       });
     }
 

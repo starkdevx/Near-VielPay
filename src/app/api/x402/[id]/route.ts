@@ -69,6 +69,17 @@ export async function POST(
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
+  let payerAccountId: string | null = null;
+  try {
+    const body = await req.json();
+    if (body.payerAccountId) payerAccountId = String(body.payerAccountId).trim();
+  } catch {
+    // optional body
+  }
+  if (!payerAccountId) {
+    payerAccountId = req.headers.get('x-payer-account') || null;
+  }
+
   const paidAtUtc = new Date().toISOString();
   const relayResult = await executeRelayedContractCall({
     targetContractId: config.contractAccountId,
@@ -86,6 +97,9 @@ export async function POST(
 
   invoice.status = 'PAID';
   invoice.paidTimestampUtc = paidAtUtc;
+  if (payerAccountId) {
+    invoice.payerAccountId = payerAccountId;
+  }
   invoice.selectedOriginAsset = 'USDC (Base via x402)';
   invoice.selectedOriginChain = 'Base (PingPay x402)';
   invoice.settlementTxHash = relayResult.txHash;

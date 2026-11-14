@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { connect, keyStores, KeyPair } from 'near-api-js';
+import { connect, keyStores, KeyPair, utils } from 'near-api-js';
 
 export interface TestnetConfig {
   networkId: string;
@@ -180,5 +180,188 @@ export async function executeRelayedContractCall(params: {
     contractAccountId: config.contractAccountId,
     gasSponsoredNear: '0.00034 NEAR ($0.00 to User)',
     liveOnChain: false,
+  };
+}
+
+export interface AccountTestnetBalances {
+  accountId: string;
+  nearBalance: number;
+  usdcBalance: number;
+  usdcCircleBalance?: number;
+  usdcOfficialBalance?: number;
+  usdcBridgedBalance?: number;
+}
+
+const TESTNET_CIRCLE_USDC_CONTRACT =
+  '3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af';
+
+async function rpcQueryWithFallback(
+  rpcUrls: string[],
+  payload: Record<string, unknown>
+): Promise<Record<string, unknown> | null> {
+  for (const url of rpcUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as Record<string, unknown>;
+      if (data && data.result) {
+        return data;
+      }
+      // If account explicitly doesn't exist, no need to retry another RPC
+      const errObj = data?.error as { cause?: { name?: string } } | undefined;
+      if (errObj?.cause?.name === 'UNKNOWN_ACCOUNT') {
+        return data;
+      }
+    } catch {
+      // try next RPC
+    }
+  }
+  return null;
+}
+
+/**
+ * Queries NEP-141 token balance (e.g. USDC with 6 decimals) from NEAR Testnet RPC.
+ */
+async function queryFtBalance(
+  rpcUrls: string[],
+  contractId: string,
+  accountId: string
+): Promise<number> {
+  try {
+    const argsBase64 = Buffer.from(
+      JSON.stringify({ account_id: accountId })
+    ).toString('base64');
+
+    const data = await rpcQueryWithFallback(rpcUrls, {
+      jsonrpc: '2.0',
+      id: `ft_balance_${contractId}`,
+      method: 'query',
+      params: {
+        request_type: 'call_function',
+        finality: 'final',
+        account_id: contractId,
+        method_name: 'ft_balance_of',
+        args_base64: argsBase64,
+      },
+    });
+
+    const result = data?.result as { result?: number[] } | undefined;
+    if (result?.result) {
+      const rawJson = Buffer.from(result.result).toString('utf8');
+      const rawUnits = JSON.parse(rawJson);
+      const parsed = Number(rawUnits) / 1_000_000;
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Queries live, real on-chain NEAR and NEP-141 USDC balances
+ * directly from the NEAR Testnet RPC for any connected wallet.
+ * Supports Circle Native USDC (3e22...b8af), Ref Bridged USDC (usdc.fakes.testnet),
+ * and Legacy Testnet USDC (usdc.testnet), with multi-RPC and NearBlocks failover.
+ */
+export async function fetchLiveAccountBalances(
+  accountId: string
+): Promise<AccountTestnetBalances> {
+  const config = getTestnetConfig();
+  const cleanedAccount = accountId.trim();
+
+  if (!cleanedAccount) {
+    return {
+      accountId: '',
+      nearBalance: 0,
+      usdcBalance: 0,
+      usdcCircleBalance: 0,
+      usdcOfficialBalance: 0,
+      usdcBridgedBalance: 0,
+    };
+  }
+
+  const rpcUrls = Array.from(
+    new Set(['https://test.rpc.fastnear.com', config.rpcUrl, 'https://rpc.testnet.near.org'])
+  );
+
+  let nearBalance = 0;
+
+  const fetchNear = async () => {
+    try {
+      const nearData = await rpcQueryWithFallback(rpcUrls, {
+        jsonrpc: '2.0',
+        id: 'view_account',
+        method: 'query',
+        params: {
+          request_type: 'view_account',
+          finality: 'final',
+          account_id: cleanedAccount,
+        },
+      });
+      const result = nearData?.result as
+        | { amount?: string; locked?: string; storage_usage?: number }
+        | undefined;
+      if (result?.amount) {
+        const totalYocto = BigInt(String(result.amount));
+        const lockedYocto = BigInt(String(result.locked || '0'));
+        const storageBytes = BigInt(result.storage_usage || 0);
+        // NEAR reserves 10^19 yoctoNEAR (0.00001 NEAR) per byte of storage
+        const stateStakedYocto = storageBytes * BigInt('10000000000000000000');
+        const reservedYocto =
+          lockedYocto > stateStakedYocto ? lockedYocto : stateStakedYocto;
+        const availableYocto =
+          totalYocto > reservedYocto ? totalYocto - reservedYocto : BigInt(0);
+
+        const formatted = utils.format.formatNearAmount(
+          availableYocto.toString(),
+          4
+        );
+        const cleanFormatted = formatted.replace(/,/g, '');
+        const parsed = parseFloat(cleanFormatted);
+        nearBalance = isNaN(parsed) ? 0 : parsed;
+        return;
+      }
+
+      // Fallback to NearBlocks Testnet API if RPC failed
+      const nbRes = await fetch(
+        `https://api-testnet.nearblocks.io/v1/account/${encodeURIComponent(cleanedAccount)}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (nbRes.ok) {
+        const nbData = (await nbRes.json()) as { account?: Array<{ amount?: string }> };
+        const amt = nbData?.account?.[0]?.amount;
+        if (amt) {
+          const formatted = utils.format.formatNearAmount(String(amt), 4);
+          const parsed = parseFloat(formatted.replace(/,/g, ''));
+          nearBalance = isNaN(parsed) ? 0 : parsed;
+        }
+      }
+    } catch {
+      // account may not exist yet on testnet
+    }
+  };
+
+  const [_, usdcCircle, usdcOfficial, usdcBridged] = await Promise.all([
+    fetchNear(),
+    queryFtBalance(rpcUrls, TESTNET_CIRCLE_USDC_CONTRACT, cleanedAccount),
+    queryFtBalance(rpcUrls, 'usdc.testnet', cleanedAccount),
+    queryFtBalance(rpcUrls, 'usdc.fakes.testnet', cleanedAccount),
+  ]);
+
+  const totalUsdc = Number((usdcCircle + usdcOfficial + usdcBridged).toFixed(2));
+
+  return {
+    accountId: cleanedAccount,
+    nearBalance: Number(nearBalance.toFixed(4)),
+    usdcBalance: totalUsdc,
+    usdcCircleBalance: Number(usdcCircle.toFixed(2)),
+    usdcOfficialBalance: Number(usdcOfficial.toFixed(2)),
+    usdcBridgedBalance: Number(usdcBridged.toFixed(2)),
   };
 }

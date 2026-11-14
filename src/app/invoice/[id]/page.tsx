@@ -16,6 +16,10 @@ import {
   ChevronUp,
   Zap,
   LogOut,
+  Share2,
+  Check,
+  User,
+  FileText,
 } from 'lucide-react';
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import { useNearWallet } from '@/components/WalletProvider';
@@ -34,11 +38,18 @@ export default function InvoiceCheckoutPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
+  const [shareCopied, setShareCopied] = useState<boolean>(false);
   const [bannerMessage, setBannerMessage] = useState<{
     type: 'success' | 'info' | 'error';
     text: string;
     txUrl?: string | null;
   } | null>(null);
+
+  const handleCopyLink = () => {
+    navigator.clipboard?.writeText(window.location.href);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -94,6 +105,18 @@ export default function InvoiceCheckoutPage() {
     }
   };
 
+  const savePaidInvoiceId = (id: string) => {
+    try {
+      const saved = localStorage.getItem('nearveil_my_paid_invoices');
+      const ids: string[] = saved ? JSON.parse(saved) : [];
+      if (!ids.includes(id)) {
+        localStorage.setItem('nearveil_my_paid_invoices', JSON.stringify([id, ...ids]));
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handlePayWithConnectedWallet = async () => {
     if (!invoice) return;
     setBusyAction('wallet_pay');
@@ -107,11 +130,13 @@ export default function InvoiceCheckoutPage() {
           invoiceId: invoice.invoiceId,
           originAssetSymbol: 'USDC',
           originChain: 'NEAR',
+          payerAccountId: accountId || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       setInvoice(data.invoice);
+      savePaidInvoiceId(data.invoice.invoiceId);
       setBannerMessage({
         type: 'success',
         text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} USDC paid from ${accountId || 'connected wallet'} and settled on NEAR Testnet.`,
@@ -142,11 +167,13 @@ export default function InvoiceCheckoutPage() {
           invoiceId: invoice.invoiceId,
           originAssetSymbol: chosenToken?.symbol || 'SOL',
           originChain: chosenToken?.chain || 'Solana',
+          payerAccountId: accountId || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Payment failed');
       setInvoice(data.invoice);
+      savePaidInvoiceId(data.invoice.invoiceId);
       setBannerMessage({
         type: 'success',
         text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} USDC settled on NEAR Testnet.`,
@@ -172,11 +199,16 @@ export default function InvoiceCheckoutPage() {
         headers: {
           'Content-Type': 'application/json',
           'X-PAYMENT': 'pingpay_x402_base_usdc_testnet_proof',
+          ...(accountId ? { 'x-payer-account': accountId } : {}),
         },
+        body: JSON.stringify({
+          payerAccountId: accountId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'x402 payment failed');
       setInvoice(data.invoice);
+      savePaidInvoiceId(data.invoice.invoiceId);
       setBannerMessage({
         type: 'success',
         text: 'Paid via PingPay x402 Agent Facilitator (Base USDC → NEAR)!',
@@ -225,6 +257,18 @@ export default function InvoiceCheckoutPage() {
         chosenToken.priceUsd === 1 ? 2 : 4
       )
     : invoice.totalAmountUsdc.toFixed(2);
+
+  const isFreelancer = Boolean(
+    (accountId && invoice.freelancerAccount?.toLowerCase() === accountId.toLowerCase()) ||
+    (typeof window !== 'undefined' &&
+      JSON.parse(localStorage.getItem('nearveil_my_invoices') || '[]').includes(invoice.invoiceId))
+  );
+
+  const isPayer = Boolean(
+    (accountId && invoice.payerAccountId?.toLowerCase() === accountId.toLowerCase()) ||
+    (typeof window !== 'undefined' &&
+      JSON.parse(localStorage.getItem('nearveil_my_paid_invoices') || '[]').includes(invoice.invoiceId))
+  );
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
@@ -302,6 +346,77 @@ export default function InvoiceCheckoutPage() {
               >
                 View Receipt
                 <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Dynamic Role & Status Banner */}
+        {isFreelancer && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#1c1a14] via-[#171612] to-[#1c1a14] border border-[#d4b06a]/40 shadow-[0_0_20px_rgba(212,176,106,0.15)] flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#262115] border border-[#524122] flex items-center justify-center text-[#d4b06a] shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-[#f5ecd5] flex items-center gap-2">
+                  <span>Invoice Issued by You</span>
+                  <span className="badge-gold-glow px-2 py-0.5 rounded-full text-[10px] font-mono">
+                    Freelancer View
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8e8a7f] mt-0.5">
+                  Share this payment link with your client. When paid, USDC settles directly into your private stealth account with $0 gas fees.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="px-3.5 py-2 rounded-xl bg-[#2a2417] hover:bg-[#382f1d] border border-[#d4b06a]/50 text-xs font-semibold text-[#f5dfa8] transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              {shareCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-[#34d399]" />
+                  Copied Link!
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-3.5 h-3.5 text-[#d4b06a]" />
+                  Copy Client Link
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {isPayer && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#121c15] via-[#0f1712] to-[#121c15] border border-[#34d399]/40 shadow-[0_0_20px_rgba(52,211,153,0.18)] flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#16291e] border border-[#2d523c] flex items-center justify-center text-[#34d399] shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-[#cde5d6] flex items-center gap-2">
+                  <span>Invoice Paid &amp; Approved by You</span>
+                  <span className="badge-emerald-glow px-2 py-0.5 rounded-full text-[10px] font-mono">
+                    Payer View
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#8e8a7f] mt-0.5">
+                  Settled on NEAR Testnet from {invoice.payerAccountId || accountId || 'your wallet'}. Verified on-chain with zero gas fees.
+                </p>
+              </div>
+            </div>
+            {invoice.settlementTxUrl && (
+              <a
+                href={invoice.settlementTxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 rounded-xl bg-[#14261c] hover:bg-[#1c3627] border border-[#34d399]/50 text-xs font-semibold text-[#a7f3d0] transition flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                NearBlocks Receipt
               </a>
             )}
           </div>

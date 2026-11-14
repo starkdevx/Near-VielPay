@@ -10,18 +10,30 @@
 > Replace the placeholders below with your recorded demo video link and hosted screenshot URLs (or local `./docs/` image paths).
 
 ### Demo Video
-- **Walkthrough Video**: `[Watch the NearPay Veil Demo Video](https://your-demo-video-link.com)`
-- <!-- Optional embed / thumbnail placeholder: [![NearPay Veil Demo](https://your-image-host.com/demo-thumbnail.png)](https://your-demo-video-link.com) -->
+
+## Demo
+[![Project Demo](assets/demo-thumbnail.png)](https://github.com/user-attachments/assets/cd3c146d-c065-4022-b650-dff3f8287831)
+
 
 ### Screenshots
 
-| Feature | Preview Placeholder |
-| :--- | :--- |
-| **Landing Page (`/`)** | `![Landing Page](https://your-image-host.com/01-landing.png)` |
-| **Gasless Invoicing (`/app` & `/invoice/[id]`)** | `![Gasless Invoicing](https://your-image-host.com/02-invoicing.png)` |
-| **Merchant Pay & Item Checkout (`/pay/[id]`)** | `![Merchant Checkout](https://your-image-host.com/03-merchant-checkout.png)` |
-| **Private Payrolls — Company & Members (`/app`)** | `![Private Payrolls](https://your-image-host.com/04-private-payroll.png)` |
-| **Bookkeeper Audit & Accountant CSV Export** | `![Bookkeeper Audit](https://your-image-host.com/05-bookkeeper-audit.png)` |
+1. Gasless Invoicing
+
+Create and manage gasless invoices, with a dedicated payment page for customers.
+
+<p align="center">   <img src="https://github.com/starkdevx/Near-VielPay/demo/v1.png" width="49%" alt="Invoice Dashboard" />   <img src="https://github.com/starkdevx/Near-VielPay/demo/v2.png" width="49%" alt="Invoice Payment Page" /> </p>
+
+2. Merchant Pay & Item Checkout
+
+Enable merchants to create payment requests and let customers complete item-based checkouts.
+
+<p align="center">   <img src="https://github.com/starkdevx/Near-VielPay/demo/v4.png" width="49%" alt="Merchant Payment" />   <img src="https://github.com/starkdevx/Near-VielPay/demo/v5.png" width="49%" alt="Item Checkout" /> </p>
+
+3. Private Payrolls
+
+Manage company payrolls and member payments with privacy-focused transactions.
+
+<p align="center">   <img src="https://github.com/starkdevx/Near-VielPay/demo/v3.png" width="85%" alt="Private Payroll Dashboard" /> </p>
 
 ---
 

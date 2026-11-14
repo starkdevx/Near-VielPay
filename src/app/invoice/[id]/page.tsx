@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import { NearVeilInvoice, OneClickQuoteResponse, OneClickTokenOption } from '@/lib/types';
 
 export default function InvoiceCheckoutPage() {
@@ -226,7 +227,7 @@ export default function InvoiceCheckoutPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0c0c0b] text-[#9c988c]">
+      <div className="min-h-screen flex items-center justify-center text-[#8e8a7f]">
         <div className="flex items-center gap-2.5 text-sm">
           <div className="h-4 w-4 rounded-full border-2 border-[#d4b06a] border-t-transparent animate-spin" />
           Loading invoice...
@@ -237,11 +238,11 @@ export default function InvoiceCheckoutPage() {
 
   if (!invoice) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0c0b] text-[#f4f1ea] p-6">
-        <p className="text-lg font-semibold mb-4">Invoice not found: {invoiceId}</p>
+      <div className="min-h-screen flex flex-col items-center justify-center text-[#f5f2eb] p-6">
+        <p className="text-lg font-serif mb-4">Invoice not found: {invoiceId}</p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#d4b06a] text-[#0c0c0b] font-semibold text-sm hover:bg-[#e2c17d]"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#d4b06a] text-[#0a0a09] font-semibold text-sm hover:bg-[#e2c17d]"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to NearVeil
@@ -259,30 +260,29 @@ export default function InvoiceCheckoutPage() {
     : invoice.totalAmountUsdc.toFixed(2);
 
   return (
-    <div className="min-h-screen bg-[#0c0c0b] text-[#f4f1ea] py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-[#9c988c] hover:text-[#f4f1ea] transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
-
-          <div className="flex items-center gap-2.5">
-            <span className="text-xs px-3 py-1 rounded-full bg-[#17261d] border border-[#2a4534] text-[#77b28c] font-medium">
-              NEAR Testnet
-            </span>
-            <a
-              href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(defaultViewingKey)}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#151513] hover:bg-[#1c1c19] border border-[#272622] text-[#d5d0c5] text-xs font-medium transition"
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-5">
+            <NearVeilLogo size="sm" />
+            <span className="h-5 w-px bg-[#272622] hidden sm:block" />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8e8a7f] hover:text-[#f5f2eb] transition"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#d4b06a]" />
-              Export CSV
-            </a>
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Dashboard
+            </Link>
           </div>
+
+          <a
+            href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(defaultViewingKey)}`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#151513] hover:bg-[#1c1c19] border border-[#272622] text-[#d5d0c5] text-xs font-medium transition"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#d4b06a]" />
+            Export CSV
+          </a>
         </div>
 
         {/* Status Notification */}
@@ -290,10 +290,10 @@ export default function InvoiceCheckoutPage() {
           <div
             className={`mb-6 px-4 py-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
               bannerMessage.type === 'success'
-                ? 'bg-[#141c17] border-[#2c4435] text-[#cde5d6]'
+                ? 'bg-[#141e18]/90 border-[#2c4435] text-[#cde5d6]'
                 : bannerMessage.type === 'error'
-                  ? 'bg-[#1f1414] border-[#4b2725] text-[#f0c7c3]'
-                  : 'bg-[#1b1914] border-[#3b3423] text-[#eadbb8]'
+                  ? 'bg-[#211515]/90 border-[#4b2725] text-[#f0c7c3]'
+                  : 'bg-[#1c1a14]/90 border-[#3b3423] text-[#eadbb8]'
             }`}
           >
             <div className="flex items-center gap-2.5 text-sm">
@@ -317,18 +317,18 @@ export default function InvoiceCheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Engraved Obsidian Statement */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 sm:p-8">
-              <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#22211d]">
+            <div className="vault-card rounded-2xl p-6 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#24231f]">
                 <div>
-                  <div className="flex items-center gap-2 text-[#d4b06a] text-xs font-medium mb-1">
+                  <div className="flex items-center gap-2 text-[#d4b06a] text-[11px] font-mono uppercase tracking-[0.12em] mb-1.5">
                     <Shield className="w-3.5 h-3.5" />
-                    NearVeil Protected Invoice
+                    Protected Invoice
                   </div>
-                  <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
+                  <h1 className="text-3xl font-serif tracking-tight text-[#f5f2eb]">
                     {invoice.invoiceId}
                   </h1>
-                  <p className="text-sm text-[#9c988c] mt-1">
-                    Billed to <strong className="text-[#f4f1ea]">{invoice.clientName}</strong>
+                  <p className="text-sm text-[#8e8a7f] mt-1">
+                    Billed to <strong className="text-[#f5f2eb] font-medium">{invoice.clientName}</strong>
                     {invoice.clientReference ? ` · Ref: ${invoice.clientReference}` : ''}
                   </p>
                 </div>
@@ -336,7 +336,7 @@ export default function InvoiceCheckoutPage() {
                 <div className="text-right">
                   {invoice.status === 'PAID' && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#17261d] border border-[#2a4534] text-[#77b28c] text-xs font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c]" />
                       Paid
                     </span>
                   )}
@@ -352,9 +352,9 @@ export default function InvoiceCheckoutPage() {
                       Refunded
                     </span>
                   )}
-                  <div className="text-xs text-[#9c988c] mt-2">
+                  <div className="text-xs text-[#8e8a7f] mt-2">
                     Issued {invoice.issueDateUtc} · Due{' '}
-                    <span className="font-medium text-[#f4f1ea]">{invoice.dueDateUtc}</span>
+                    <span className="font-medium text-[#f5f2eb]">{invoice.dueDateUtc}</span>
                   </div>
                 </div>
               </div>
@@ -362,7 +362,7 @@ export default function InvoiceCheckoutPage() {
               <div className="py-6">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="text-xs text-[#736f65] border-b border-[#22211d]">
+                    <tr className="text-[11px] font-mono uppercase tracking-wider text-[#6d695f] border-b border-[#22211d]">
                       <th className="pb-3 font-medium">Description</th>
                       <th className="pb-3 font-medium text-right">Qty</th>
                       <th className="pb-3 font-medium text-right">Rate</th>
@@ -372,16 +372,16 @@ export default function InvoiceCheckoutPage() {
                   <tbody className="divide-y divide-[#22211d]">
                     {invoice.lineItems.map((item) => (
                       <tr key={item.id}>
-                        <td className="py-3.5 font-medium text-[#f4f1ea]">
+                        <td className="py-3.5 font-medium text-[#f5f2eb]">
                           {item.description}
                         </td>
-                        <td className="py-3.5 text-right text-[#9c988c] tabular-nums">
+                        <td className="py-3.5 text-right text-[#8e8a7f] tabular-nums">
                           {item.quantity}
                         </td>
-                        <td className="py-3.5 text-right text-[#9c988c] tabular-nums">
+                        <td className="py-3.5 text-right text-[#8e8a7f] tabular-nums">
                           ${item.unitPriceUsd.toFixed(2)}
                         </td>
-                        <td className="py-3.5 text-right font-semibold text-[#f4f1ea] tabular-nums">
+                        <td className="py-3.5 text-right font-semibold text-[#f5f2eb] tabular-nums">
                           ${(item.quantity * item.unitPriceUsd).toFixed(2)}
                         </td>
                       </tr>
@@ -390,29 +390,29 @@ export default function InvoiceCheckoutPage() {
                 </table>
 
                 <div className="mt-6 pt-4 border-t border-[#22211d] space-y-2 text-sm">
-                  <div className="flex justify-between text-[#9c988c]">
+                  <div className="flex justify-between text-[#8e8a7f]">
                     <span>Subtotal</span>
-                    <span className="text-[#f4f1ea] tabular-nums">
+                    <span className="text-[#f5f2eb] tabular-nums">
                       ${invoice.subtotalUsd.toFixed(2)}
                     </span>
                   </div>
                   {invoice.taxAmountUsd > 0 && (
-                    <div className="flex justify-between text-[#9c988c]">
+                    <div className="flex justify-between text-[#8e8a7f]">
                       <span>Tax ({invoice.taxRatePercent}%)</span>
-                      <span className="text-[#f4f1ea] tabular-nums">
+                      <span className="text-[#f5f2eb] tabular-nums">
                         ${invoice.taxAmountUsd.toFixed(2)}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between text-[#9c988c]">
+                  <div className="flex justify-between text-[#8e8a7f]">
                     <span>Network Gas Fee (Freelancer)</span>
                     <span className="text-[#77b28c] font-medium">$0.00 (Sponsored)</span>
                   </div>
                   <div className="pt-3 border-t border-[#22211d] flex justify-between items-baseline">
-                    <span className="font-medium text-[#f4f1ea]">Amount Due</span>
-                    <span className="text-2xl font-semibold text-[#d4b06a] tabular-nums tracking-[-0.02em]">
+                    <span className="font-medium text-[#f5f2eb]">Amount Due</span>
+                    <span className="text-3xl font-serif text-[#d4b06a] tabular-nums">
                       ${invoice.totalAmountUsdc.toFixed(2)}{' '}
-                      <span className="text-sm font-normal text-[#9c988c]">USDC</span>
+                      <span className="text-sm font-sans text-[#8e8a7f]">USDC</span>
                     </span>
                   </div>
                 </div>
@@ -421,7 +421,7 @@ export default function InvoiceCheckoutPage() {
               {invoice.status === 'PAID' && (
                 <div className="pt-5 border-t border-[#22211d]">
                   {invoice.claimedToStealthWallet ? (
-                    <div className="p-4 rounded-lg bg-[#141c17] border border-[#2c4435] flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="p-4 rounded-xl bg-[#141c17] border border-[#2c4435] flex flex-wrap items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-2 text-[#cde5d6] font-medium">
                         <CheckCircle2 className="w-4 h-4 text-[#77b28c] shrink-0" />
                         Claimed privately to one-time NEAR stealth wallet ($0 gas)
@@ -439,9 +439,9 @@ export default function InvoiceCheckoutPage() {
                       )}
                     </div>
                   ) : (
-                    <div className="p-4 rounded-lg bg-[#11110f] border border-[#272622] flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-[#9c988c]">
-                        <strong className="text-[#f4f1ea] block">
+                    <div className="p-4 rounded-xl bg-[#10100e] border border-[#272622] flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-xs text-[#8e8a7f]">
+                        <strong className="text-[#f5f2eb] block">
                           Freelancer: Ready to Claim Privately
                         </strong>
                         Sweep funds to a fresh unlinked wallet with zero gas fees.
@@ -450,7 +450,7 @@ export default function InvoiceCheckoutPage() {
                         type="button"
                         disabled={busyAction === 'claim'}
                         onClick={handleClaimStealth}
-                        className="px-4 py-2 rounded-lg bg-[#f4f1ea] hover:bg-white text-[#0c0c0b] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+                        className="px-4 py-2 rounded-xl bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Lock className="w-3.5 h-3.5" />
                         {busyAction === 'claim' ? 'Claiming...' : 'Claim Privately ($0 Gas)'}
@@ -464,7 +464,7 @@ export default function InvoiceCheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-                  className="flex items-center justify-between w-full text-xs font-medium text-[#9c988c] hover:text-[#f4f1ea] cursor-pointer"
+                  className="flex items-center justify-between w-full text-xs font-medium text-[#8e8a7f] hover:text-[#f5f2eb] cursor-pointer"
                 >
                   <span>On-Chain Receipts &amp; Privacy Details</span>
                   {showTechnicalDetails ? (
@@ -475,9 +475,9 @@ export default function InvoiceCheckoutPage() {
                 </button>
 
                 {showTechnicalDetails && (
-                  <div className="mt-3 p-3.5 rounded-lg bg-[#11110f] border border-[#272622] text-xs space-y-2">
+                  <div className="mt-3 p-3.5 rounded-xl bg-[#10100e] border border-[#272622] text-xs space-y-2">
                     <div className="flex justify-between gap-2">
-                      <span className="text-[#736f65]">Created (Gasless Relayer):</span>
+                      <span className="text-[#6d695f]">Created (Gasless Relayer):</span>
                       <a
                         href={invoice.creationTxUrl}
                         target="_blank"
@@ -490,7 +490,7 @@ export default function InvoiceCheckoutPage() {
                     </div>
                     {invoice.settlementTxUrl && invoice.settlementTxHash && (
                       <div className="flex justify-between gap-2">
-                        <span className="text-[#736f65]">Settlement Receipt:</span>
+                        <span className="text-[#6d695f]">Settlement Receipt:</span>
                         <a
                           href={invoice.settlementTxUrl}
                           target="_blank"
@@ -504,7 +504,7 @@ export default function InvoiceCheckoutPage() {
                     )}
                     {invoice.refundTxUrl && invoice.refundTxHash && (
                       <div className="flex justify-between gap-2">
-                        <span className="text-[#736f65]">Refund Receipt:</span>
+                        <span className="text-[#6d695f]">Refund Receipt:</span>
                         <a
                           href={invoice.refundTxUrl}
                           target="_blank"
@@ -517,8 +517,8 @@ export default function InvoiceCheckoutPage() {
                       </div>
                     )}
                     <div className="flex justify-between gap-2">
-                      <span className="text-[#736f65]">One-Time Stealth Account:</span>
-                      <span className="font-mono text-[#9c988c]">
+                      <span className="text-[#6d695f]">One-Time Stealth Account:</span>
+                      <span className="font-mono text-[#8e8a7f]">
                         {invoice.stealthImplicitAccount.slice(0, 14)}...
                       </span>
                     </div>
@@ -528,53 +528,70 @@ export default function InvoiceCheckoutPage() {
             </div>
           </div>
 
-          {/* Right Column: Client Payment Card */}
+          {/* Right Column: Visual Currency Selector & Pay Card */}
           <div className="lg:col-span-5">
-            <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 space-y-5">
+            <div className="vault-card rounded-2xl p-6 space-y-5">
               <div>
-                <h2 className="text-lg font-semibold text-[#f4f1ea]">Pay Invoice</h2>
-                <p className="text-xs text-[#9c988c] mt-0.5">
-                  Choose any token you already hold. Powered by NEAR Intents 1Click API.
+                <h2 className="text-xl font-serif text-[#f5f2eb]">Pay Invoice</h2>
+                <p className="text-xs text-[#8e8a7f] mt-0.5">
+                  Select any token you already hold. Settled via NEAR Intents 1Click API.
                 </p>
               </div>
 
-              <div>
-                <label className="block text-xs text-[#9c988c] mb-1.5">
+              {/* Visual Clickable Token Grid */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
                   Pay With
                 </label>
-                <select
-                  value={selectedAssetId}
-                  onChange={(e) => {
-                    setSelectedAssetId(e.target.value);
-                    handleRequest1ClickQuote(e.target.value);
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea] focus:outline-none focus:border-[#d4b06a]"
-                >
-                  {tokens.map((t) => (
-                    <option key={t.assetId} value={t.assetId}>
-                      {t.symbol} ({t.chain})
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {tokens.map((t) => {
+                    const isSelected = t.assetId === selectedAssetId;
+                    return (
+                      <button
+                        key={t.assetId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAssetId(t.assetId);
+                          handleRequest1ClickQuote(t.assetId);
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#1e1c16] border-[#d4b06a]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                            : 'bg-[#10100e] border-[#272622] hover:border-[#3c3a32]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ChainDot chain={t.chain} />
+                          <span className="text-xs font-semibold text-[#f5f2eb] truncate">
+                            {t.symbol.split(' ')[0]}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-[#736f65] mt-0.5 truncate pl-4">
+                          {t.chain}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-[#11110f] border border-[#272622] space-y-2 text-xs">
-                <div className="flex justify-between text-[#9c988c]">
+              <div className="p-4 rounded-xl bg-[#10100e] border border-[#272622] space-y-2 text-xs">
+                <div className="flex justify-between text-[#8e8a7f]">
                   <span>You Pay ({chosenToken?.chain})</span>
-                  <span className="font-semibold text-[#f4f1ea] text-sm tabular-nums">
+                  <span className="font-semibold text-[#f5f2eb] text-sm tabular-nums">
                     ~{estimatedOriginAmount} {chosenToken?.symbol.split(' ')[0]}
                   </span>
                 </div>
-                <div className="flex justify-between text-[#9c988c]">
+                <div className="flex justify-between text-[#8e8a7f]">
                   <span>Recipient Receives</span>
                   <span className="font-semibold text-[#77b28c] text-sm tabular-nums">
                     ${invoice.totalAmountUsdc.toFixed(2)} USDC
                   </span>
                 </div>
                 {quote && (
-                  <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#736f65]">
+                  <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#6d695f]">
                     1Click Deposit Address:{' '}
-                    <span className="font-mono text-[#9c988c] break-all">
+                    <span className="font-mono text-[#8e8a7f] break-all">
                       {quote.depositAddress}
                     </span>
                   </div>
@@ -586,7 +603,7 @@ export default function InvoiceCheckoutPage() {
                   type="button"
                   disabled={invoice.status === 'PAID' || busyAction !== null}
                   onClick={handlePayWith1Click}
-                  className="w-full py-3.5 px-5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] disabled:bg-[#22211d] disabled:text-[#736f65] text-[#0c0c0b] font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] disabled:from-[#22211d] disabled:to-[#22211d] disabled:text-[#6d695f] text-[#0a0a09] font-semibold text-sm shadow-[0_6px_20px_-4px_rgba(212,176,106,0.3)] transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Wallet className="w-4 h-4" />
                   {busyAction === 'pay'
@@ -601,7 +618,7 @@ export default function InvoiceCheckoutPage() {
                     type="button"
                     disabled={busyAction !== null}
                     onClick={handlePingPayX402}
-                    className="w-full py-2.5 px-4 rounded-lg bg-[#1c1c19] hover:bg-[#24231f] border border-[#2c2b26] text-[#d5d0c5] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#23221e] border border-[#2c2b26] text-[#d5d0c5] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Bot className="w-4 h-4 text-[#d4b06a]" />
                     {busyAction === 'x402'
@@ -615,7 +632,7 @@ export default function InvoiceCheckoutPage() {
                     type="button"
                     disabled={busyAction !== null}
                     onClick={handleRefundInvoice}
-                    className="w-full py-2.5 px-4 rounded-lg bg-[#1c1c19] hover:bg-[#281817] border border-[#2c2b26] hover:border-[#492826] text-[#9c988c] hover:text-[#d97b73] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#281817] border border-[#2c2b26] hover:border-[#492826] text-[#8e8a7f] hover:text-[#d97b73] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <RefreshCcw className="w-3.5 h-3.5" />
                     {busyAction === 'refund'

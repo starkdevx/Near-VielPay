@@ -24,7 +24,11 @@ import {
   Eye,
   EyeOff,
   Wallet,
+  Coins,
+  Zap,
+  ArrowUpRight,
 } from 'lucide-react';
+import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import {
   InvoiceLineItem,
   NearVeilInvoice,
@@ -398,30 +402,19 @@ export default function NearVeilHomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0c0c0b] text-[#f4f1ea] flex flex-col lg:flex-row">
-      {/* Left Sidebar — Warm Obsidian */}
-      <aside className="lg:w-68 bg-[#121210] border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
-        <div className="p-5">
-          {/* Brand */}
-          <div className="flex items-center justify-between lg:justify-start gap-3 mb-7">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-[#d4b06a]/15 border border-[#d4b06a]/40 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-[#d4b06a]" />
-              </div>
-              <div>
-                <div className="font-semibold text-base tracking-[-0.02em] text-[#f4f1ea] leading-none">
-                  NearVeil
-                </div>
-                <div className="text-[11px] text-[#9c988c] mt-1 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c] inline-block" />
-                  NEAR Testnet
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left Sidebar */}
+      <aside className="lg:w-72 bg-[#11110f]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
+        <div className="p-6">
+          <div className="mb-8">
+            <NearVeilLogo />
           </div>
 
-          {/* Navigation */}
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
+          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2.5 px-3 hidden lg:block">
+            Workspace
+          </div>
+
+          <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -430,15 +423,15 @@ export default function NearVeilHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm transition whitespace-nowrap cursor-pointer ${
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? 'bg-[#1e1d1a] text-[#f4f1ea] font-medium border border-[#32302a]'
-                      : 'text-[#9c988c] hover:bg-[#181815] hover:text-[#f4f1ea] border border-transparent'
+                      ? 'bg-[#1d1c18] text-[#f5f2eb] font-medium border border-[#d4b06a]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                      : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
                   }`}
                 >
                   <Icon
                     className={`w-4 h-4 ${
-                      isActive ? 'text-[#d4b06a]' : 'text-[#736f65]'
+                      isActive ? 'text-[#d4b06a]' : 'text-[#6d695f]'
                     }`}
                   />
                   {item.label}
@@ -449,29 +442,32 @@ export default function NearVeilHomePage() {
         </div>
 
         {/* Bottom Testnet Vault Card */}
-        <div className="hidden lg:block p-4 m-4 rounded-xl bg-[#161614] border border-[#272622] space-y-3">
+        <div className="hidden lg:block p-4 m-5 rounded-2xl vault-card space-y-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[#9c988c]">Demo USDC</span>
+            <span className="text-[#8e8a7f] flex items-center gap-1.5">
+              <Coins className="w-3.5 h-3.5 text-[#d4b06a]" />
+              Testnet USDC
+            </span>
             <button
               type="button"
               onClick={handleMintFaucet}
               disabled={busyKey === 'faucet'}
-              className="text-[#d4b06a] hover:text-[#e2c17d] font-medium cursor-pointer"
+              className="text-[#d4b06a] hover:text-[#e2c17d] text-[11px] font-mono uppercase tracking-wider cursor-pointer"
             >
-              + Add $10k
+              + Mint $10k
             </button>
           </div>
-          <div className="text-xl font-semibold text-[#f4f1ea] tabular-nums tracking-[-0.02em]">
+          <div className="text-2xl font-serif text-[#f5f2eb] tabular-nums tracking-tight">
             ${faucetBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </div>
           <div className="pt-2.5 border-t border-[#272622] flex items-center justify-between text-xs">
-            <span className="text-[#9c988c]">Private Claimed</span>
+            <span className="text-[#8e8a7f]">Private Claimed</span>
             <span className="font-medium text-[#77b28c] tabular-nums">
               ${stealthClaimedBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </span>
           </div>
           <div className="text-[11px] text-[#736f65] flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-[#77b28c] shrink-0" />
+            <Zap className="w-3 h-3 text-[#d4b06a] shrink-0" />
             Gas fees sponsored ($0.00)
           </div>
         </div>
@@ -479,16 +475,16 @@ export default function NearVeilHomePage() {
 
       {/* Main Content Area */}
       <div className="flex-1 min-w-0">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 lg:py-10">
           {/* Toast Notification */}
           {toast && (
             <div
-              className={`mb-6 px-4 py-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${
+              className={`mb-6 px-4 py-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 backdrop-blur-sm ${
                 toast.type === 'success'
-                  ? 'bg-[#141c17] border-[#2c4435] text-[#cde5d6]'
+                  ? 'bg-[#141e18]/90 border-[#2c4435] text-[#cde5d6]'
                   : toast.type === 'error'
-                    ? 'bg-[#1f1414] border-[#4b2725] text-[#f0c7c3]'
-                    : 'bg-[#1b1914] border-[#3b3423] text-[#eadbb8]'
+                    ? 'bg-[#211515]/90 border-[#4b2725] text-[#f0c7c3]'
+                    : 'bg-[#1c1a14]/90 border-[#3b3423] text-[#eadbb8]'
               }`}
             >
               <div className="flex items-center gap-2.5 text-sm">
@@ -510,7 +506,7 @@ export default function NearVeilHomePage() {
                 <button
                   type="button"
                   onClick={() => setToast(null)}
-                  className="text-[#9c988c] hover:text-[#f4f1ea] cursor-pointer"
+                  className="text-[#8e8a7f] hover:text-[#f5f2eb] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -520,85 +516,130 @@ export default function NearVeilHomePage() {
 
           {/* TAB 1: INVOICES */}
           {activeTab === 'invoices' && (
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-7">
+              {/* Editorial Header */}
+              <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
-                    Invoices
+                  <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
+                    Accounts Receivable · Gasless
+                  </div>
+                  <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
+                    Client Invoices
                   </h1>
-                  <p className="text-sm text-[#9c988c] mt-0.5">
-                    Create an invoice and share the link. Clients pay in any token; you receive USDC with zero gas fees.
+                  <p className="text-sm text-[#8e8a7f] mt-1">
+                    Clients pay from any chain; you receive exact USDC on NEAR with zero gas fees.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] font-semibold text-sm transition cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] font-semibold text-sm shadow-[0_6px_20px_-4px_rgba(212,176,106,0.35)] transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   New Invoice
                 </button>
               </div>
 
-              {/* 3 Summary Cards */}
+              {/* 3 Visual KPI Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-[#151513] rounded-xl border border-[#272622] p-5">
-                  <div className="text-xs text-[#9c988c]">Collected (USDC)</div>
-                  <div className="text-2xl font-semibold text-[#f4f1ea] mt-1.5 tabular-nums tracking-[-0.02em]">
-                    ${paidInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                <div className="vault-card rounded-2xl p-5 flex items-start justify-between">
+                  <div>
+                    <div className="text-xs text-[#8e8a7f]">Collected (USDC)</div>
+                    <div className="text-3xl font-serif text-[#f5f2eb] mt-1.5 tabular-nums">
+                      ${paidInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-[#77b28c] mt-2 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Settled 1:1 in USD
+                    </div>
                   </div>
-                  <div className="text-xs text-[#77b28c] mt-1.5">
-                    Settled 1:1 in USD
-                  </div>
-                </div>
-
-                <div className="bg-[#151513] rounded-xl border border-[#272622] p-5">
-                  <div className="text-xs text-[#9c988c]">Awaiting Payment</div>
-                  <div className="text-2xl font-semibold text-[#f4f1ea] mt-1.5 tabular-nums tracking-[-0.02em]">
-                    ${pendingInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </div>
-                  <div className="text-xs text-[#d9a05b] mt-1.5">
-                    {arInvoices.filter((i) => i.status === 'PENDING').length} open invoice(s)
+                  <div className="h-9 w-9 rounded-xl bg-[#17261d] border border-[#2a4534] flex items-center justify-center text-[#77b28c]">
+                    <Wallet className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="bg-[#151513] rounded-xl border border-[#272622] p-5">
-                  <div className="text-xs text-[#9c988c]">Gas Fees You Paid</div>
-                  <div className="text-2xl font-semibold text-[#d4b06a] mt-1.5 tabular-nums tracking-[-0.02em]">
-                    $0.00
+                <div className="vault-card rounded-2xl p-5 flex items-start justify-between">
+                  <div>
+                    <div className="text-xs text-[#8e8a7f]">Awaiting Payment</div>
+                    <div className="text-3xl font-serif text-[#f5f2eb] mt-1.5 tabular-nums">
+                      ${pendingInvoicesTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-xs text-[#d9a05b] mt-2 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {arInvoices.filter((i) => i.status === 'PENDING').length} open invoice(s)
+                    </div>
                   </div>
-                  <div className="text-xs text-[#736f65] mt-1.5">
-                    Sponsored by NearVeil Relayer
+                  <div className="h-9 w-9 rounded-xl bg-[#261f14] border border-[#42341d] flex items-center justify-center text-[#d9a05b]">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="vault-card rounded-2xl p-5 flex items-start justify-between">
+                  <div>
+                    <div className="text-xs text-[#8e8a7f]">Gas Fees You Paid</div>
+                    <div className="text-3xl font-serif text-[#d4b06a] mt-1.5 tabular-nums">
+                      $0.00
+                    </div>
+                    <div className="text-xs text-[#8e8a7f] mt-2 flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 text-[#d4b06a]" />
+                      Sponsored by Relayer
+                    </div>
+                  </div>
+                  <div className="h-9 w-9 rounded-xl bg-[#d4b06a]/15 border border-[#d4b06a]/30 flex items-center justify-center text-[#d4b06a]">
+                    <Sparkles className="w-4 h-4" />
                   </div>
                 </div>
               </div>
 
+              {/* Clean 3-Step Visual Strip */}
+              <div className="vault-card-subtle rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs text-[#8e8a7f]">
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-[#1e1d19] border border-[#35332b] text-[#d4b06a] font-mono text-[10px] flex items-center justify-center">
+                    1
+                  </span>
+                  <span>Create &amp; share invoice link</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-[#4a4840] hidden sm:block" />
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-[#1e1d19] border border-[#35332b] text-[#d4b06a] font-mono text-[10px] flex items-center justify-center">
+                    2
+                  </span>
+                  <span>Client pays in SOL, Base, ETH, or NEAR</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-[#4a4840] hidden sm:block" />
+                <div className="flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-[#1e1d19] border border-[#35332b] text-[#77b28c] font-mono text-[10px] flex items-center justify-center">
+                    3
+                  </span>
+                  <span>Sweep USDC privately with $0 gas</span>
+                </div>
+              </div>
+
               {/* Invoices List */}
-              <div className="bg-[#151513] rounded-xl border border-[#272622] overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#272622] flex items-center justify-between">
-                  <h2 className="font-medium text-sm text-[#f4f1ea]">
+              <div className="vault-card rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-[#24231f] flex items-center justify-between">
+                  <h2 className="font-medium text-sm text-[#f5f2eb]">
                     Recent Invoices ({arInvoices.length})
                   </h2>
-                  <span className="text-xs text-[#736f65]">
-                    Click any invoice to preview client checkout
+                  <span className="text-xs text-[#6d695f]">
+                    Select an invoice to open checkout
                   </span>
                 </div>
 
                 {loading ? (
-                  <div className="p-10 text-center text-sm text-[#736f65]">
+                  <div className="p-10 text-center text-sm text-[#6d695f]">
                     Loading invoices...
                   </div>
                 ) : arInvoices.length === 0 ? (
                   <div className="p-12 text-center">
-                    <p className="text-sm text-[#9c988c] mb-3">
+                    <p className="text-sm text-[#8e8a7f] mb-4">
                       No invoices yet. Create your first gasless invoice in seconds.
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(true)}
-                      className="px-4 py-2 rounded-lg bg-[#d4b06a] text-[#0c0c0b] text-sm font-semibold cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#d4b06a] text-[#0a0a09] text-sm font-semibold cursor-pointer"
                     >
                       + Create Invoice
                     </button>
@@ -608,48 +649,49 @@ export default function NearVeilHomePage() {
                     {arInvoices.map((inv) => (
                       <div
                         key={inv.invoiceId}
-                        className="p-5 hover:bg-[#1a1a17] transition flex flex-wrap items-center justify-between gap-4"
+                        className="p-5 hover:bg-[#1a1a17]/80 transition-colors flex flex-wrap items-center justify-between gap-4"
                       >
-                        <div className="min-w-0 space-y-1">
+                        <div className="min-w-0 space-y-1.5">
                           <div className="flex flex-wrap items-center gap-2.5">
                             <Link
                               href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                              className="font-medium text-[#f4f1ea] hover:text-[#d4b06a] transition"
+                              className="font-semibold text-[#f5f2eb] hover:text-[#d4b06a] transition inline-flex items-center gap-1"
                             >
                               {inv.clientName}
+                              <ArrowUpRight className="w-3.5 h-3.5 text-[#6d695f]" />
                             </Link>
-                            <span className="text-xs font-mono text-[#736f65]">
+                            <span className="text-[11px] font-mono text-[#736f65] bg-[#1a1a17] px-2 py-0.5 rounded border border-[#272622]">
                               {inv.invoiceId}
                             </span>
                             {inv.status === 'PAID' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#17261d] text-[#77b28c] border border-[#2a4534] text-xs font-medium">
-                                <CheckCircle2 className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#17261d] text-[#77b28c] border border-[#2a4534] text-xs font-medium">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c]" />
                                 Paid
                               </span>
                             )}
                             {inv.status === 'PENDING' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#261f14] text-[#d9a05b] border border-[#42341d] text-xs font-medium">
-                                <Clock className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#261f14] text-[#d9a05b] border border-[#42341d] text-xs font-medium">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#d9a05b]" />
                                 Pending
                               </span>
                             )}
                             {inv.status === 'REFUNDED' && (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#281817] text-[#d97b73] border border-[#492826] text-xs font-medium">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#281817] text-[#d97b73] border border-[#492826] text-xs font-medium">
                                 <RefreshCcw className="w-3 h-3" />
                                 Refunded
                               </span>
                             )}
                           </div>
 
-                          <div className="text-xs text-[#9c988c] flex flex-wrap items-center gap-2.5">
+                          <div className="text-xs text-[#8e8a7f] flex flex-wrap items-center gap-2.5">
                             <span>Due {inv.dueDateUtc}</span>
-                            <span className="text-[#4a4842]">·</span>
+                            <span className="text-[#3e3c36]">·</span>
                             <span className="truncate max-w-md">
                               {inv.lineItems.map((l) => l.description).join(', ')}
                             </span>
                             {inv.settlementTxUrl && (
                               <>
-                                <span className="text-[#4a4842]">·</span>
+                                <span className="text-[#3e3c36]">·</span>
                                 <a
                                   href={inv.settlementTxUrl}
                                   target="_blank"
@@ -666,16 +708,18 @@ export default function NearVeilHomePage() {
 
                         <div className="flex flex-wrap items-center gap-2.5">
                           <div className="text-right mr-2">
-                            <div className="text-base font-semibold text-[#f4f1ea] tabular-nums">
+                            <div className="text-lg font-serif text-[#f5f2eb] tabular-nums">
                               ${inv.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </div>
-                            <div className="text-[11px] text-[#736f65]">USDC</div>
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-[#6d695f]">
+                              USDC
+                            </div>
                           </div>
 
                           <button
                             type="button"
                             onClick={() => handleCopyInvoiceLink(inv.invoiceId)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1c1c19] hover:bg-[#24231f] text-[#d5d0c5] text-xs font-medium transition cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition cursor-pointer"
                           >
                             {copiedId === inv.invoiceId ? (
                               <>
@@ -685,14 +729,14 @@ export default function NearVeilHomePage() {
                             ) : (
                               <>
                                 <Copy className="w-3.5 h-3.5 text-[#736f65]" />
-                                Copy Link
+                                Share Link
                               </>
                             )}
                           </button>
 
                           <Link
                             href={`/invoice/${encodeURIComponent(inv.invoiceId)}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1c1c19] hover:bg-[#24231f] text-[#d5d0c5] text-xs font-medium transition"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#2c2b26] bg-[#1a1a17] hover:bg-[#23221e] text-[#d5d0c5] text-xs font-medium transition"
                           >
                             Open
                             <ArrowRight className="w-3.5 h-3.5 text-[#736f65]" />
@@ -703,7 +747,7 @@ export default function NearVeilHomePage() {
                               type="button"
                               disabled={busyKey === `pay_${inv.invoiceId}`}
                               onClick={() => handleQuickPayInvoice(inv)}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] text-xs font-semibold transition cursor-pointer"
+                              className="px-3.5 py-1.5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0a0a09] text-xs font-semibold transition cursor-pointer"
                             >
                               {busyKey === `pay_${inv.invoiceId}`
                                 ? 'Paying...'
@@ -716,7 +760,7 @@ export default function NearVeilHomePage() {
                               type="button"
                               disabled={busyKey === `claim_${inv.invoiceId}`}
                               onClick={() => handleQuickStealthClaim(inv)}
-                              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#f4f1ea] hover:bg-white text-[#0c0c0b] text-xs font-semibold transition cursor-pointer"
+                              className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold transition cursor-pointer"
                             >
                               <Lock className="w-3 h-3" />
                               {busyKey === `claim_${inv.invoiceId}`
@@ -726,7 +770,7 @@ export default function NearVeilHomePage() {
                           )}
 
                           {inv.claimedToStealthWallet && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1c1c19] border border-[#272622] text-[#9c988c] text-xs">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1a1a17] border border-[#272622] text-[#8e8a7f] text-xs">
                               <CheckCircle2 className="w-3.5 h-3.5 text-[#77b28c]" />
                               Claimed
                             </span>
@@ -744,22 +788,25 @@ export default function NearVeilHomePage() {
           {activeTab === 'payroll' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
+                <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
+                  Umbra-Style Confidentiality
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
                   Private Payroll
                 </h1>
-                <p className="text-sm text-[#9c988c] mt-0.5">
-                  Pay your team in one click. Public blockchain observers only see one lump-sum deposit—individual salaries and wallets stay private.
+                <p className="text-sm text-[#8e8a7f] mt-1">
+                  Pay your team in one pooled deposit. Individual salaries and wallets stay hidden from public block explorers.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <form
                   onSubmit={handleRunPrivatePayroll}
-                  className="lg:col-span-7 bg-[#151513] rounded-xl border border-[#272622] p-6 space-y-5"
+                  className="lg:col-span-7 vault-card rounded-2xl p-6 space-y-5"
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-[#9c988c] mb-1.5">
+                      <label className="block text-xs text-[#8e8a7f] mb-1.5">
                         Company Name
                       </label>
                       <input
@@ -767,11 +814,11 @@ export default function NearVeilHomePage() {
                         required
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea] focus:outline-none focus:border-[#d4b06a]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[#9c988c] mb-1.5">
+                      <label className="block text-xs text-[#8e8a7f] mb-1.5">
                         Pay Period
                       </label>
                       <input
@@ -779,13 +826,13 @@ export default function NearVeilHomePage() {
                         required
                         value={payPeriodLabel}
                         onChange={(e) => setPayPeriodLabel(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea] focus:outline-none focus:border-[#d4b06a]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs text-[#9c988c] mb-1.5">
+                    <label className="block text-xs text-[#8e8a7f] mb-1.5">
                       Funding Currency
                     </label>
                     <select
@@ -795,7 +842,7 @@ export default function NearVeilHomePage() {
                         setPayrollOriginAsset(sym);
                         setPayrollOriginChain(ch);
                       }}
-                      className="w-full px-3.5 py-2.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea] focus:outline-none focus:border-[#d4b06a]"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
                     >
                       {tokens.map((t) => (
                         <option key={t.assetId} value={`${t.symbol}|${t.chain}`}>
@@ -807,7 +854,7 @@ export default function NearVeilHomePage() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.06em] text-[#9c988c]">
+                      <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-[#8e8a7f]">
                         Team Members ({payrollRecipients.length})
                       </span>
                       <button
@@ -835,7 +882,7 @@ export default function NearVeilHomePage() {
                       {payrollRecipients.map((rec, idx) => (
                         <div
                           key={rec.id}
-                          className="p-3 rounded-lg bg-[#11110f] border border-[#272622] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
+                          className="p-3 rounded-xl bg-[#10100e] border border-[#272622] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
                         >
                           <input
                             type="text"
@@ -849,7 +896,7 @@ export default function NearVeilHomePage() {
                               );
                             }}
                             placeholder="Full Name"
-                            className="sm:col-span-5 px-3 py-2 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-sm text-[#f4f1ea]"
+                            className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#f5f2eb]"
                           />
                           <input
                             type="text"
@@ -863,10 +910,10 @@ export default function NearVeilHomePage() {
                               );
                             }}
                             placeholder="Role"
-                            className="sm:col-span-4 px-3 py-2 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-sm text-[#9c988c]"
+                            className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f]"
                           />
                           <div className="sm:col-span-3 relative">
-                            <span className="absolute left-3 top-2 text-sm text-[#736f65]">
+                            <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
                               $
                             </span>
                             <input
@@ -881,7 +928,7 @@ export default function NearVeilHomePage() {
                                   )
                                 );
                               }}
-                              className="w-full pl-7 pr-3 py-2 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-sm font-semibold text-[#f4f1ea] tabular-nums"
+                              className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums"
                             />
                           </div>
                         </div>
@@ -889,19 +936,19 @@ export default function NearVeilHomePage() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-[#272622] flex flex-wrap items-center justify-between gap-4">
+                  <div className="pt-4 border-t border-[#24231f] flex flex-wrap items-center justify-between gap-4">
                     <div>
-                      <div className="text-xs text-[#9c988c]">Total Payroll Run</div>
-                      <div className="text-2xl font-semibold text-[#f4f1ea] tabular-nums tracking-[-0.02em]">
+                      <div className="text-xs text-[#8e8a7f]">Total Payroll Run</div>
+                      <div className="text-3xl font-serif text-[#f5f2eb] tabular-nums">
                         ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
-                        <span className="text-sm font-normal text-[#9c988c]">USDC</span>
+                        <span className="text-sm font-sans text-[#8e8a7f]">USDC</span>
                       </div>
                     </div>
 
                     <button
                       type="submit"
                       disabled={busyKey === 'run_payroll'}
-                      className="px-6 py-3 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] font-semibold text-sm transition flex items-center gap-2 cursor-pointer"
+                      className="px-6 py-3 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] font-semibold text-sm shadow-[0_6px_20px_-4px_rgba(212,176,106,0.35)] transition flex items-center gap-2 cursor-pointer"
                     >
                       <Lock className="w-4 h-4" />
                       {busyKey === 'run_payroll'
@@ -913,13 +960,13 @@ export default function NearVeilHomePage() {
 
                 {/* Completed Payroll Runs & Employee Claim Cards */}
                 <div className="lg:col-span-5 space-y-4">
-                  <div className="bg-[#151513] rounded-xl border border-[#272622] p-5 space-y-3">
-                    <h2 className="font-medium text-sm text-[#f4f1ea]">
+                  <div className="vault-card rounded-2xl p-5 space-y-3">
+                    <h2 className="font-medium text-sm text-[#f5f2eb]">
                       Recent Payroll Runs ({payrollBatches.length})
                     </h2>
 
                     {payrollBatches.length === 0 ? (
-                      <p className="text-xs text-[#736f65] py-4">
+                      <p className="text-xs text-[#6d695f] py-4">
                         No payroll runs yet. Click &ldquo;Pay Team Privately&rdquo; to execute your first confidential payroll batch on NEAR Testnet.
                       </p>
                     ) : (
@@ -927,18 +974,21 @@ export default function NearVeilHomePage() {
                         {payrollBatches.map((batch) => (
                           <div
                             key={batch.batchId}
-                            className="p-3.5 rounded-lg bg-[#11110f] border border-[#272622] space-y-1.5"
+                            className="p-3.5 rounded-xl bg-[#10100e] border border-[#272622] space-y-1.5"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm text-[#f4f1ea]">
+                              <span className="font-medium text-sm text-[#f5f2eb]">
                                 {batch.payPeriodLabel}
                               </span>
-                              <span className="font-semibold text-sm text-[#d4b06a] tabular-nums">
+                              <span className="font-serif text-base text-[#d4b06a] tabular-nums">
                                 ${batch.totalAmountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-[#9c988c]">
-                              <span>{batch.recipientCount} team members shielded</span>
+                            <div className="flex items-center justify-between text-xs text-[#8e8a7f]">
+                              <span className="flex items-center gap-1.5">
+                                <ChainDot chain={batch.fundingOriginChain} />
+                                {batch.recipientCount} team members shielded
+                              </span>
                               <a
                                 href={batch.fundingTxUrl}
                                 target="_blank"
@@ -956,21 +1006,21 @@ export default function NearVeilHomePage() {
                   </div>
 
                   {payrollRecords.length > 0 && (
-                    <div className="bg-[#151513] rounded-xl border border-[#272622] p-5 space-y-3">
-                      <h3 className="font-medium text-sm text-[#f4f1ea]">
+                    <div className="vault-card rounded-2xl p-5 space-y-3">
+                      <h3 className="font-medium text-sm text-[#f5f2eb]">
                         Employee Private Claims ({payrollRecords.length})
                       </h3>
                       <div className="space-y-2.5">
                         {payrollRecords.map((slip) => (
                           <div
                             key={slip.invoiceId}
-                            className="p-3 rounded-lg bg-[#11110f] border border-[#272622] flex items-center justify-between gap-2"
+                            className="p-3 rounded-xl bg-[#10100e] border border-[#272622] flex items-center justify-between gap-2"
                           >
                             <div>
-                              <div className="font-medium text-sm text-[#f4f1ea]">
+                              <div className="font-medium text-sm text-[#f5f2eb]">
                                 {slip.clientName}
                               </div>
-                              <div className="text-xs text-[#9c988c] tabular-nums">
+                              <div className="text-xs text-[#8e8a7f] tabular-nums">
                                 ${slip.totalAmountUsdc.toFixed(2)} USDC
                               </div>
                             </div>
@@ -980,7 +1030,7 @@ export default function NearVeilHomePage() {
                                 href={slip.stealthClaimTxUrl || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#17261d] text-[#77b28c] text-xs font-medium"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#17261d] text-[#77b28c] text-xs font-medium"
                               >
                                 Claimed
                                 <ExternalLink className="w-3 h-3" />
@@ -990,7 +1040,7 @@ export default function NearVeilHomePage() {
                                 type="button"
                                 disabled={busyKey === `claim_${slip.invoiceId}`}
                                 onClick={() => handleQuickStealthClaim(slip)}
-                                className="px-3 py-1.5 rounded-md bg-[#f4f1ea] hover:bg-white text-[#0c0c0b] text-xs font-semibold cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold cursor-pointer"
                               >
                                 {busyKey === `claim_${slip.invoiceId}`
                                   ? 'Claiming...'
@@ -1010,12 +1060,15 @@ export default function NearVeilHomePage() {
           {/* TAB 3: BOOKKEEPER & CSV */}
           {activeTab === 'accounting' && (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
+                  <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
+                    Zero-Question Reconciliation
+                  </div>
+                  <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
                     Bookkeeper &amp; Tax Exports
                   </h1>
-                  <p className="text-sm text-[#9c988c] mt-0.5">
+                  <p className="text-sm text-[#8e8a7f] mt-1">
                     Clean spreadsheets your accountant can import into QuickBooks or Xero without asking a single question.
                   </p>
                 </div>
@@ -1024,23 +1077,23 @@ export default function NearVeilHomePage() {
                   href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(
                     viewingKeyInput || testnetInfo?.defaultViewingKey || ''
                   )}`}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] font-semibold text-sm transition"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] font-semibold text-sm shadow-[0_6px_20px_-4px_rgba(212,176,106,0.35)] transition"
                 >
                   <FileSpreadsheet className="w-4 h-4" />
                   Download Accountant CSV
                 </a>
               </div>
 
-              <div className="bg-[#151513] rounded-xl border border-[#272622] p-5 flex flex-wrap items-center justify-between gap-4">
+              <div className="vault-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-xs text-[#9c988c]">
+                  <span className="text-xs text-[#8e8a7f]">
                     Bookkeeper Viewing Key:
                   </span>
                   <input
                     type="text"
                     value={viewingKeyInput}
                     onChange={(e) => setViewingKeyInput(e.target.value)}
-                    className="px-3 py-1.5 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] font-mono text-xs text-[#d4b06a] w-64"
+                    className="px-3 py-1.5 rounded-lg bg-[#0d0d0c] border border-[#2c2b26] font-mono text-xs text-[#d4b06a] w-64"
                   />
                 </div>
 
@@ -1049,10 +1102,10 @@ export default function NearVeilHomePage() {
                   onClick={() =>
                     setBookkeeperDecryptedMode(!bookkeeperDecryptedMode)
                   }
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium border transition cursor-pointer ${
                     bookkeeperDecryptedMode
                       ? 'bg-[#17261d] border-[#2a4534] text-[#77b28c]'
-                      : 'bg-[#1c1c19] border-[#2c2b26] text-[#9c988c]'
+                      : 'bg-[#1a1a17] border-[#2c2b26] text-[#8e8a7f]'
                   }`}
                 >
                   {bookkeeperDecryptedMode ? (
@@ -1069,10 +1122,10 @@ export default function NearVeilHomePage() {
                 </button>
               </div>
 
-              <div className="bg-[#151513] rounded-xl border border-[#272622] overflow-hidden">
+              <div className="vault-card rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#11110f] text-[#9c988c] border-b border-[#272622]">
+                    <thead className="bg-[#10100e] text-[#8e8a7f] border-b border-[#24231f]">
                       <tr>
                         <th className="py-3.5 px-4 font-medium">ID</th>
                         <th className="py-3.5 px-4 font-medium">Category</th>
@@ -1086,8 +1139,8 @@ export default function NearVeilHomePage() {
                     </thead>
                     <tbody className="divide-y divide-[#22211d]">
                       {invoices.map((rec) => (
-                        <tr key={rec.invoiceId} className="hover:bg-[#1a1a17]">
-                          <td className="py-3.5 px-4 font-mono font-medium text-[#f4f1ea]">
+                        <tr key={rec.invoiceId} className="hover:bg-[#1a1a17]/70">
+                          <td className="py-3.5 px-4 font-mono font-medium text-[#f5f2eb]">
                             <Link
                               href={`/invoice/${encodeURIComponent(rec.invoiceId)}`}
                               className="hover:text-[#d4b06a] underline"
@@ -1095,7 +1148,7 @@ export default function NearVeilHomePage() {
                               {rec.invoiceId}
                             </Link>
                           </td>
-                          <td className="py-3.5 px-4 text-[#9c988c]">
+                          <td className="py-3.5 px-4 text-[#8e8a7f]">
                             {rec.recordType === 'AR_INVOICE' ? 'Invoice Income' : 'Private Payroll'}
                           </td>
                           <td className="py-3.5 px-4">
@@ -1113,22 +1166,22 @@ export default function NearVeilHomePage() {
                           </td>
                           <td className="py-3.5 px-4">
                             {bookkeeperDecryptedMode ? (
-                              <span className="font-medium text-[#f4f1ea]">
+                              <span className="font-medium text-[#f5f2eb]">
                                 {rec.clientName}
                               </span>
                             ) : (
-                              <span className="font-mono text-[#736f65]">
+                              <span className="font-mono text-[#6d695f]">
                                 [Encrypted: {rec.encryptedViewingNote.slice(0, 18)}...]
                               </span>
                             )}
                           </td>
-                          <td className="py-3.5 px-4 text-right font-semibold text-[#f4f1ea] tabular-nums">
+                          <td className="py-3.5 px-4 text-right font-semibold text-[#f5f2eb] tabular-nums">
                             ${rec.totalAmountUsdc.toFixed(2)}
                           </td>
                           <td className="py-3.5 px-4 text-right text-[#77b28c] tabular-nums">
                             $0.00
                           </td>
-                          <td className="py-3.5 px-4 text-[#9c988c]">
+                          <td className="py-3.5 px-4 text-[#8e8a7f]">
                             {rec.recordType === 'AR_INVOICE'
                               ? '1010 Cash / 4000 Revenue'
                               : '6100 Payroll / 1010 Cash'}
@@ -1157,27 +1210,30 @@ export default function NearVeilHomePage() {
           {activeTab === 'security' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[#f4f1ea]">
+                <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
+                  Architecture &amp; Audit
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
                   NEAR Testnet &amp; Relayer Security
                 </h1>
-                <p className="text-sm text-[#9c988c] mt-0.5">
-                  Technical verification tools for judges: inspect live Testnet contracts, test our strict Relayer allowlist, and view the PingPay x402 endpoint.
+                <p className="text-sm text-[#8e8a7f] mt-1">
+                  Inspect live Testnet contracts, verify our strict Relayer allowlist, and test the PingPay x402 endpoint.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 space-y-4">
-                  <h2 className="font-medium text-base text-[#f4f1ea] flex items-center gap-2">
+                <div className="vault-card rounded-2xl p-6 space-y-4">
+                  <h2 className="font-medium text-base text-[#f5f2eb] flex items-center gap-2">
                     <Shield className="w-4 h-4 text-[#d4b06a]" />
                     Gasless Meta-Transaction Relayer Guard
                   </h2>
-                  <p className="text-xs text-[#9c988c] leading-relaxed">
-                    Our relayer sponsors gas <strong className="text-[#f4f1ea]">only</strong> for whitelisted calls to our own NearVeil contract. Any attempt to call another contract is rejected with HTTP 403.
+                  <p className="text-xs text-[#8e8a7f] leading-relaxed">
+                    Our relayer sponsors gas <strong className="text-[#f5f2eb]">only</strong> for whitelisted calls to our own NearVeil contract. Any attempt to call another contract is rejected with HTTP 403.
                   </p>
 
-                  <div className="p-3.5 rounded-lg bg-[#0e0e0d] border border-[#272622] text-xs font-mono space-y-1.5">
+                  <div className="p-3.5 rounded-xl bg-[#0d0d0c] border border-[#272622] text-xs font-mono space-y-1.5">
                     <div>
-                      <span className="text-[#736f65]">Vault Contract: </span>
+                      <span className="text-[#6d695f]">Vault Contract: </span>
                       <a
                         href={`${testnetInfo?.explorerBaseUrl}/address/${testnetInfo?.contractAccountId}`}
                         target="_blank"
@@ -1188,7 +1244,7 @@ export default function NearVeilHomePage() {
                       </a>
                     </div>
                     <div>
-                      <span className="text-[#736f65]">Relayer Account: </span>
+                      <span className="text-[#6d695f]">Relayer Account: </span>
                       <a
                         href={`${testnetInfo?.explorerBaseUrl}/address/${testnetInfo?.relayerAccountId}`}
                         target="_blank"
@@ -1205,7 +1261,7 @@ export default function NearVeilHomePage() {
                       type="button"
                       disabled={busyKey !== null}
                       onClick={() => handleTestRelayerPolicy('authorized')}
-                      className="py-2.5 px-3 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] font-semibold text-xs transition cursor-pointer"
+                      className="py-2.5 px-3 rounded-xl bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0a0a09] font-semibold text-xs transition cursor-pointer"
                     >
                       Test Allowed Contract (200 OK)
                     </button>
@@ -1213,30 +1269,30 @@ export default function NearVeilHomePage() {
                       type="button"
                       disabled={busyKey !== null}
                       onClick={() => handleTestRelayerPolicy('unauthorized')}
-                      className="py-2.5 px-3 rounded-lg bg-[#281817] hover:bg-[#341f1e] border border-[#492826] text-[#d97b73] font-semibold text-xs transition cursor-pointer"
+                      className="py-2.5 px-3 rounded-xl bg-[#281817] hover:bg-[#341f1e] border border-[#492826] text-[#d97b73] font-semibold text-xs transition cursor-pointer"
                     >
                       Test Foreign Contract (403)
                     </button>
                   </div>
 
                   {relayerTestLog && (
-                    <pre className="p-3.5 rounded-lg bg-[#0c0c0b] border border-[#272622] text-[#d4b06a] text-xs font-mono overflow-x-auto">
+                    <pre className="p-3.5 rounded-xl bg-[#0a0a09] border border-[#272622] text-[#d4b06a] text-xs font-mono overflow-x-auto">
                       {relayerTestLog}
                     </pre>
                   )}
                 </div>
 
-                <div className="bg-[#151513] rounded-xl border border-[#272622] p-6 space-y-4">
-                  <h2 className="font-medium text-base text-[#f4f1ea] flex items-center gap-2">
+                <div className="vault-card rounded-2xl p-6 space-y-4">
+                  <h2 className="font-medium text-base text-[#f5f2eb] flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-[#d4b06a]" />
                     PingPay x402 Agent Paywall
                   </h2>
-                  <p className="text-xs text-[#9c988c] leading-relaxed">
+                  <p className="text-xs text-[#8e8a7f] leading-relaxed">
                     Every invoice exposes an <code className="font-mono text-[#d4b06a]">HTTP 402</code> endpoint so AI agents can pay in USDC on Base via PingPay and settle on NEAR.
                   </p>
                   {invoices[0] && (
-                    <div className="p-4 rounded-lg bg-[#0e0e0d] border border-[#272622] text-xs space-y-2">
-                      <div className="text-[#9c988c]">
+                    <div className="p-4 rounded-xl bg-[#0d0d0c] border border-[#272622] text-xs space-y-2">
+                      <div className="text-[#8e8a7f]">
                         Live x402 Endpoint for {invoices[0].invoiceId}:
                       </div>
                       <a
@@ -1259,19 +1315,19 @@ export default function NearVeilHomePage() {
 
       {/* Modal for Creating a New Invoice */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#151513] rounded-xl border border-[#2c2b26] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-[#272622] flex items-center justify-between sticky top-0 bg-[#151513]">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="vault-card rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-[#24231f] flex items-center justify-between sticky top-0 bg-[#151513]">
               <div>
-                <h2 className="font-semibold text-lg text-[#f4f1ea]">New Invoice</h2>
-                <p className="text-xs text-[#9c988c]">
+                <h2 className="font-serif text-2xl text-[#f5f2eb]">New Invoice</h2>
+                <p className="text-xs text-[#8e8a7f]">
                   Sent with $0.00 gas fees · Paid in USDC
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="p-1.5 rounded-lg text-[#9c988c] hover:text-[#f4f1ea] hover:bg-[#1e1d1a] cursor-pointer"
+                className="p-1.5 rounded-lg text-[#8e8a7f] hover:text-[#f5f2eb] hover:bg-[#1e1d1a] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1280,7 +1336,7 @@ export default function NearVeilHomePage() {
             <form onSubmit={handleCreateGaslessInvoice} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs text-[#9c988c] mb-1">
+                  <label className="block text-xs text-[#8e8a7f] mb-1">
                     Client Name
                   </label>
                   <input
@@ -1288,36 +1344,36 @@ export default function NearVeilHomePage() {
                     required
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#9c988c] mb-1">
+                  <label className="block text-xs text-[#8e8a7f] mb-1">
                     PO / Reference #
                   </label>
                   <input
                     type="text"
                     value={clientReference}
                     onChange={(e) => setClientReference(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb]"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block text-xs text-[#9c988c] mb-1">
+                  <label className="block text-xs text-[#8e8a7f] mb-1">
                     Due Date
                   </label>
                   <input
                     type="date"
                     value={dueDateUtc}
                     onChange={(e) => setDueDateUtc(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-xs text-[#f4f1ea]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#9c988c] mb-1">
+                  <label className="block text-xs text-[#8e8a7f] mb-1">
                     Tax (%)
                   </label>
                   <input
@@ -1327,25 +1383,25 @@ export default function NearVeilHomePage() {
                     step={0.5}
                     value={taxRatePercent}
                     onChange={(e) => setTaxRatePercent(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-sm text-[#f4f1ea]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-[#9c988c] mb-1">
+                  <label className="block text-xs text-[#8e8a7f] mb-1">
                     Your Name / ID
                   </label>
                   <input
                     type="text"
                     value={freelancerAccount}
                     onChange={(e) => setFreelancerAccount(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#0e0e0d] border border-[#2c2b26] text-xs text-[#f4f1ea]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                   />
                 </div>
               </div>
 
               <div className="space-y-2.5 pt-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-[#9c988c]">
+                  <span className="text-xs font-medium text-[#8e8a7f]">
                     Line Items
                   </span>
                   <button
@@ -1361,7 +1417,7 @@ export default function NearVeilHomePage() {
                 {lineItems.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="p-3 rounded-lg bg-[#11110f] border border-[#272622] space-y-2"
+                    className="p-3 rounded-xl bg-[#10100e] border border-[#272622] space-y-2"
                   >
                     <div className="flex items-center gap-2">
                       <input
@@ -1377,13 +1433,13 @@ export default function NearVeilHomePage() {
                           );
                         }}
                         placeholder="Item description"
-                        className="w-full px-2.5 py-1.5 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-xs text-[#f4f1ea]"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#181815] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                       />
                       {lineItems.length > 1 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveLineItem(item.id)}
-                          className="text-[#736f65] hover:text-[#d97b73] p-1 cursor-pointer"
+                          className="text-[#6d695f] hover:text-[#d97b73] p-1 cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1405,7 +1461,7 @@ export default function NearVeilHomePage() {
                           );
                         }}
                         placeholder="Qty"
-                        className="px-2.5 py-1.5 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-xs text-[#f4f1ea]"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#181815] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                       />
                       <input
                         type="number"
@@ -1422,17 +1478,17 @@ export default function NearVeilHomePage() {
                           );
                         }}
                         placeholder="Price ($)"
-                        className="px-2.5 py-1.5 rounded-md bg-[#1a1a17] border border-[#2c2b26] text-xs text-[#f4f1ea]"
+                        className="px-2.5 py-1.5 rounded-lg bg-[#181815] border border-[#2c2b26] text-xs text-[#f5f2eb]"
                       />
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-3 border-t border-[#272622] flex items-center justify-between">
+              <div className="pt-3 border-t border-[#24231f] flex items-center justify-between">
                 <div>
-                  <div className="text-xs text-[#9c988c]">Invoice Total</div>
-                  <div className="text-xl font-semibold text-[#f4f1ea] tabular-nums">
+                  <div className="text-xs text-[#8e8a7f]">Invoice Total</div>
+                  <div className="text-2xl font-serif text-[#f5f2eb] tabular-nums">
                     ${invoiceTotal.toFixed(2)} USDC
                   </div>
                 </div>
@@ -1440,7 +1496,7 @@ export default function NearVeilHomePage() {
                 <button
                   type="submit"
                   disabled={busyKey === 'create_invoice'}
-                  className="px-5 py-2.5 rounded-lg bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0c0c0b] font-semibold text-sm transition inline-flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] font-semibold text-sm transition inline-flex items-center gap-2 cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4" />
                   {busyKey === 'create_invoice'

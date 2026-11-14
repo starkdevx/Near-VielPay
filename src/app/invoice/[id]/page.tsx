@@ -8,28 +8,29 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
-  RefreshCcw,
   Shield,
   Wallet,
-  Lock,
   Bot,
-  FileSpreadsheet,
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Zap,
+  LogOut,
 } from 'lucide-react';
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
+import { useNearWallet } from '@/components/WalletProvider';
 import { NearVeilInvoice, OneClickQuoteResponse, OneClickTokenOption } from '@/lib/types';
 
 export default function InvoiceCheckoutPage() {
   const params = useParams();
   const invoiceId = String(params?.id || '');
 
+  const { accountId, isConnected, connect, disconnect } = useNearWallet();
+
   const [invoice, setInvoice] = useState<NearVeilInvoice | null>(null);
   const [tokens, setTokens] = useState<OneClickTokenOption[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [quote, setQuote] = useState<OneClickQuoteResponse | null>(null);
-  const [defaultViewingKey, setDefaultViewingKey] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
@@ -50,7 +51,6 @@ export default function InvoiceCheckoutPage() {
       const tokenList: OneClickTokenOption[] = data.oneClickTokens || [];
       setTokens(tokenList);
       setSelectedAssetId((prev) => prev || tokenList[2]?.assetId || tokenList[0]?.assetId || '');
-      setDefaultViewingKey(data.testnetInfo?.defaultViewingKey || '');
     } catch {
       setBannerMessage({
         type: 'error',
@@ -84,6 +84,39 @@ export default function InvoiceCheckoutPage() {
       if (!res.ok) throw new Error(data.error || 'Quote error');
       setQuote(data.quote);
       setInvoice(data.invoice);
+    } catch (err) {
+      setBannerMessage({
+        type: 'error',
+        text: (err as Error).message,
+      });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const handlePayWithConnectedWallet = async () => {
+    if (!invoice) return;
+    setBusyAction('wallet_pay');
+    setBannerMessage(null);
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pay_invoice_1click',
+          invoiceId: invoice.invoiceId,
+          originAssetSymbol: 'USDC',
+          originChain: 'NEAR',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Payment failed');
+      setInvoice(data.invoice);
+      setBannerMessage({
+        type: 'success',
+        text: `Payment complete! $${data.invoice.totalAmountUsdc.toFixed(2)} USDC paid from ${accountId || 'connected wallet'} and settled on NEAR Testnet.`,
+        txUrl: data.invoice.settlementTxUrl,
+      });
     } catch (err) {
       setBannerMessage({
         type: 'error',
@@ -159,70 +192,6 @@ export default function InvoiceCheckoutPage() {
     }
   };
 
-  const handleRefundInvoice = async () => {
-    if (!invoice) return;
-    setBusyAction('refund');
-    setBannerMessage(null);
-    try {
-      const res = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'refund_invoice',
-          invoiceId: invoice.invoiceId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Refund failed');
-      setInvoice(data.invoice);
-      setBannerMessage({
-        type: 'info',
-        text: `Invoice ${data.invoice.invoiceId} refunded to client.`,
-        txUrl: data.invoice.refundTxUrl,
-      });
-    } catch (err) {
-      setBannerMessage({
-        type: 'error',
-        text: (err as Error).message,
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
-  const handleClaimStealth = async () => {
-    if (!invoice) return;
-    setBusyAction('claim');
-    setBannerMessage(null);
-    try {
-      const res = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'claim_stealth',
-          invoiceId: invoice.invoiceId,
-          claimSecret: invoice.claimSecretHint,
-          destinationStealthAccount: invoice.stealthImplicitAccount,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Stealth claim failed');
-      setInvoice(data.invoice);
-      setBannerMessage({
-        type: 'success',
-        text: `Swept $${data.invoice.totalAmountUsdc.toFixed(2)} USDC privately to your one-time wallet with $0.00 gas!`,
-        txUrl: data.invoice.stealthClaimTxUrl,
-      });
-    } catch (err) {
-      setBannerMessage({
-        type: 'error',
-        text: (err as Error).message,
-      });
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-[#8e8a7f]">
@@ -274,13 +243,39 @@ export default function InvoiceCheckoutPage() {
             </Link>
           </div>
 
-          <a
-            href={`/api/invoices?format=csv&viewingKey=${encodeURIComponent(defaultViewingKey)}`}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#151513] hover:bg-[#1c1c19] border border-[#272622] text-[#d5d0c5] text-xs font-medium transition"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#d4b06a]" />
-            Export CSV
-          </a>
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#141411] border border-[#2d2c25] text-[11px] font-mono text-[#a39f93]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#34d399] animate-pulse" />
+              NEAR Testnet
+            </span>
+
+            {isConnected && accountId ? (
+              <div className="pl-3 pr-2 py-1 rounded-xl bg-[#171612] border border-[#d4b06a]/40 shadow-[0_0_15px_-3px_rgba(212,176,106,0.25)] flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-[#34d399]" />
+                  <span className="text-xs font-mono text-[#f5f2eb] max-w-[150px] truncate">
+                    {accountId}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={disconnect}
+                  title="Disconnect Wallet"
+                  className="p-1 rounded-lg text-[#8e8a7f] hover:text-[#f87171] transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={connect}
+                className="px-3.5 py-1.5 rounded-xl bg-[#d4b06a] hover:bg-[#e2c17d] text-[#0a0a09] font-bold text-xs shadow-[0_0_18px_rgba(212,176,106,0.3)] transition cursor-pointer"
+              >
+                Connect Wallet
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Status Notification */}
@@ -315,44 +310,47 @@ export default function InvoiceCheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column: Engraved Obsidian Statement */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="vault-card rounded-2xl p-6 sm:p-8">
+            <div className="vault-card-glow-gold rounded-2xl p-6 sm:p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/60 to-transparent" />
               <div className="flex flex-wrap items-start justify-between gap-4 pb-6 border-b border-[#24231f]">
                 <div>
-                  <div className="flex items-center gap-2 text-[#d4b06a] text-[11px] font-mono uppercase tracking-[0.12em] mb-1.5">
-                    <Shield className="w-3.5 h-3.5" />
+                  <div className="badge-gold-glow px-3 py-0.5 rounded-full inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-[0.12em] mb-2">
+                    <Shield className="w-3.5 h-3.5 text-[#d4b06a]" />
                     Protected Invoice
                   </div>
-                  <h1 className="text-3xl font-serif tracking-tight text-[#f5f2eb]">
+                  <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-gradient-gold">
                     {invoice.invoiceId}
                   </h1>
-                  <p className="text-sm text-[#8e8a7f] mt-1">
-                    Billed to <strong className="text-[#f5f2eb] font-medium">{invoice.clientName}</strong>
+                  <p className="text-sm text-[#9c978b] mt-1.5">
+                    Billed to <strong className="text-[#f5f2eb] font-semibold">{invoice.clientName}</strong>
                     {invoice.clientReference ? ` · Ref: ${invoice.clientReference}` : ''}
+                  </p>
+                  <p className="text-xs text-[#8e8a7f] mt-1 font-mono">
+                    Payable to: <span className="text-[#d4b06a] font-semibold">{invoice.freelancerAccount}</span>
                   </p>
                 </div>
 
                 <div className="text-right">
                   {invoice.status === 'PAID' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#17261d] border border-[#2a4534] text-[#77b28c] text-xs font-medium">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c]" />
-                      Paid
+                    <span className="badge-emerald-glow inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#34d399] animate-pulse" />
+                      Paid &amp; Settled
                     </span>
                   )}
                   {invoice.status === 'PENDING' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#261f14] border border-[#42341d] text-[#d9a05b] text-xs font-medium">
-                      <Clock className="w-3.5 h-3.5" />
-                      Pending
+                    <span className="badge-gold-glow inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-[#fbbf24]" />
+                      Payment Due
                     </span>
                   )}
                   {invoice.status === 'REFUNDED' && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#281817] border border-[#492826] text-[#d97b73] text-xs font-medium">
-                      <RefreshCcw className="w-3.5 h-3.5" />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#2b1717] border border-[#5c2d2c] text-[#f87171] text-xs font-semibold">
                       Refunded
                     </span>
                   )}
-                  <div className="text-xs text-[#8e8a7f] mt-2">
+                  <div className="text-xs text-[#8e8a7f] mt-2 font-mono">
                     Issued {invoice.issueDateUtc} · Due{' '}
-                    <span className="font-medium text-[#f5f2eb]">{invoice.dueDateUtc}</span>
+                    <span className="font-semibold text-[#f5f2eb]">{invoice.dueDateUtc}</span>
                   </div>
                 </div>
               </div>
@@ -360,7 +358,7 @@ export default function InvoiceCheckoutPage() {
               <div className="py-6">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="text-[11px] font-mono uppercase tracking-wider text-[#6d695f] border-b border-[#22211d]">
+                    <tr className="text-[11px] font-mono uppercase tracking-wider text-[#a39f93] border-b border-[#24231f]">
                       <th className="pb-3 font-medium">Description</th>
                       <th className="pb-3 font-medium text-right">Qty</th>
                       <th className="pb-3 font-medium text-right">Rate</th>
@@ -369,14 +367,14 @@ export default function InvoiceCheckoutPage() {
                   </thead>
                   <tbody className="divide-y divide-[#22211d]">
                     {invoice.lineItems.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item.id} className="hover:bg-[#181714] transition-colors">
                         <td className="py-3.5 font-medium text-[#f5f2eb]">
                           {item.description}
                         </td>
-                        <td className="py-3.5 text-right text-[#8e8a7f] tabular-nums">
+                        <td className="py-3.5 text-right text-[#a39f93] tabular-nums">
                           {item.quantity}
                         </td>
-                        <td className="py-3.5 text-right text-[#8e8a7f] tabular-nums">
+                        <td className="py-3.5 text-right text-[#a39f93] tabular-nums">
                           ${item.unitPriceUsd.toFixed(2)}
                         </td>
                         <td className="py-3.5 text-right font-semibold text-[#f5f2eb] tabular-nums">
@@ -404,13 +402,13 @@ export default function InvoiceCheckoutPage() {
                   )}
                   <div className="flex justify-between text-[#8e8a7f]">
                     <span>Network Gas Fee (Freelancer)</span>
-                    <span className="text-[#77b28c] font-medium">$0.00 (Sponsored)</span>
+                    <span className="text-[#34d399] font-semibold">$0.00 (Sponsored)</span>
                   </div>
-                  <div className="pt-3 border-t border-[#22211d] flex justify-between items-baseline">
-                    <span className="font-medium text-[#f5f2eb]">Amount Due</span>
-                    <span className="text-3xl font-serif text-[#d4b06a] tabular-nums">
+                  <div className="pt-3 border-t border-[#262520] flex justify-between items-baseline">
+                    <span className="font-semibold text-[#f5f2eb]">Amount Due</span>
+                    <span className="text-3xl sm:text-4xl font-serif text-gradient-gold tabular-nums">
                       ${invoice.totalAmountUsdc.toFixed(2)}{' '}
-                      <span className="text-sm font-sans text-[#8e8a7f]">USDC</span>
+                      <span className="text-sm font-sans font-normal text-[#8e8a7f]">USDC</span>
                     </span>
                   </div>
                 </div>
@@ -418,43 +416,23 @@ export default function InvoiceCheckoutPage() {
 
               {invoice.status === 'PAID' && (
                 <div className="pt-5 border-t border-[#22211d]">
-                  {invoice.claimedToStealthWallet ? (
-                    <div className="p-4 rounded-xl bg-[#141c17] border border-[#2c4435] flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-2 text-[#cde5d6] font-medium">
-                        <CheckCircle2 className="w-4 h-4 text-[#77b28c] shrink-0" />
-                        Claimed privately to one-time NEAR stealth wallet ($0 gas)
-                      </div>
-                      {invoice.stealthClaimTxUrl && (
-                        <a
-                          href={invoice.stealthClaimTxUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[#d4b06a] font-medium underline"
-                        >
-                          View Sweep Receipt
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
+                  <div className="p-4 rounded-xl bg-[#141c17] border border-[#2c4435] flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-[#cde5d6] font-medium">
+                      <CheckCircle2 className="w-4 h-4 text-[#77b28c] shrink-0" />
+                      Payment settled in USDC on NEAR Testnet ($0.00 gas fee)
                     </div>
-                  ) : (
-                    <div className="p-4 rounded-xl bg-[#10100e] border border-[#272622] flex flex-wrap items-center justify-between gap-3">
-                      <div className="text-xs text-[#8e8a7f]">
-                        <strong className="text-[#f5f2eb] block">
-                          Freelancer: Ready to Claim Privately
-                        </strong>
-                        Sweep funds to a fresh unlinked wallet with zero gas fees.
-                      </div>
-                      <button
-                        type="button"
-                        disabled={busyAction === 'claim'}
-                        onClick={handleClaimStealth}
-                        className="px-4 py-2 rounded-xl bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold transition inline-flex items-center gap-1.5 cursor-pointer"
+                    {invoice.settlementTxUrl && (
+                      <a
+                        href={invoice.settlementTxUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#d4b06a] font-medium underline"
                       >
-                        <Lock className="w-3.5 h-3.5" />
-                        {busyAction === 'claim' ? 'Claiming...' : 'Claim Privately ($0 Gas)'}
-                      </button>
-                    </div>
-                  )}
+                        View On-Chain Receipt
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -528,117 +506,187 @@ export default function InvoiceCheckoutPage() {
 
           {/* Right Column: Visual Currency Selector & Pay Card */}
           <div className="lg:col-span-5">
-            <div className="vault-card rounded-2xl p-6 space-y-5">
+            <div className="vault-card-glow-gold rounded-2xl p-6 space-y-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/60 to-transparent" />
               <div>
-                <h2 className="text-xl font-serif text-[#f5f2eb]">Pay Invoice</h2>
-                <p className="text-xs text-[#8e8a7f] mt-0.5">
-                  Select any token you already hold. Settled via NEAR Intents 1Click API.
+                <h2 className="text-2xl font-serif text-gradient-gold">
+                  {invoice.status === 'PAID' ? 'Payment Completed' : 'Pay Invoice'}
+                </h2>
+                <p className="text-xs text-[#9c978b] mt-1">
+                  {invoice.status === 'PAID'
+                    ? 'This invoice has been settled on NEAR Testnet.'
+                    : 'Pay directly from your connected wallet or across chains via 1Click.'}
                 </p>
               </div>
 
-              {/* Visual Clickable Token Grid */}
-              <div className="space-y-2">
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
-                  Pay With
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {tokens.map((t) => {
-                    const isSelected = t.assetId === selectedAssetId;
-                    return (
-                      <button
-                        key={t.assetId}
-                        type="button"
-                        onClick={() => {
-                          setSelectedAssetId(t.assetId);
-                          handleRequest1ClickQuote(t.assetId);
-                        }}
-                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-[#1e1c16] border-[#d4b06a]/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                            : 'bg-[#10100e] border-[#272622] hover:border-[#3c3a32]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ChainDot chain={t.chain} />
-                          <span className="text-xs font-semibold text-[#f5f2eb] truncate">
-                            {t.symbol.split(' ')[0]}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-[#736f65] mt-0.5 truncate pl-4">
-                          {t.chain}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#10100e] border border-[#272622] space-y-2 text-xs">
-                <div className="flex justify-between text-[#8e8a7f]">
-                  <span>You Pay ({chosenToken?.chain})</span>
-                  <span className="font-semibold text-[#f5f2eb] text-sm tabular-nums">
-                    ~{estimatedOriginAmount} {chosenToken?.symbol.split(' ')[0]}
-                  </span>
-                </div>
-                <div className="flex justify-between text-[#8e8a7f]">
-                  <span>Recipient Receives</span>
-                  <span className="font-semibold text-[#77b28c] text-sm tabular-nums">
-                    ${invoice.totalAmountUsdc.toFixed(2)} USDC
-                  </span>
-                </div>
-                {quote && (
-                  <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#6d695f]">
-                    1Click Deposit Address:{' '}
-                    <span className="font-mono text-[#8e8a7f] break-all">
-                      {quote.depositAddress}
-                    </span>
+              {invoice.status === 'PAID' ? (
+                <div className="space-y-4 pt-2">
+                  <div className="p-5 rounded-2xl bg-[#121c15] border border-[#2d4d38] space-y-3">
+                    <div className="flex items-center gap-2 text-[#4ade80] font-semibold text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-[#34d399]" />
+                      Payment Confirmed
+                    </div>
+                    <div className="text-xs text-[#9c978b] space-y-1.5">
+                      <div>Total Settled: <strong className="text-[#f5f2eb] font-semibold">${invoice.totalAmountUsdc.toFixed(2)} USDC</strong></div>
+                      <div>Recipient: <span className="font-mono text-[#d4b06a]">{invoice.freelancerAccount}</span></div>
+                      {invoice.paidTimestampUtc && (
+                        <div>Paid At: <span className="text-[#f5f2eb] font-mono">{invoice.paidTimestampUtc.slice(0, 19).replace('T', ' ')} UTC</span></div>
+                      )}
+                    </div>
+                    {invoice.settlementTxUrl && (
+                      <div className="pt-2 border-t border-[#233b2b]">
+                        <a
+                          href={invoice.settlementTxUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#e2c17d] hover:text-[#fae8b8] underline"
+                        >
+                          View Receipt on NEARBlocks Explorer
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <>
+                  {/* Option 1: Direct NEAR Wallet Pay */}
+                  <div className="p-4 rounded-xl bg-[#151410] border border-[#302d24] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-[#f5ecd5] flex items-center gap-1.5">
+                        <Wallet className="w-3.5 h-3.5 text-[#d4b06a]" />
+                        Pay with NEAR Wallet
+                      </span>
+                      {isConnected && (
+                        <span className="text-[10px] font-mono text-[#34d399] bg-[#112419] px-2 py-0.5 rounded border border-[#2b4d37]">
+                          Connected
+                        </span>
+                      )}
+                    </div>
 
-              <div className="space-y-2.5">
-                <button
-                  type="button"
-                  disabled={invoice.status === 'PAID' || busyAction !== null}
-                  onClick={handlePayWith1Click}
-                  className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] disabled:from-[#22211d] disabled:to-[#22211d] disabled:text-[#6d695f] text-[#0a0a09] font-semibold text-sm shadow-[0_6px_20px_-4px_rgba(212,176,106,0.3)] transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Wallet className="w-4 h-4" />
-                  {busyAction === 'pay'
-                    ? 'Processing Payment...'
-                    : invoice.status === 'PAID'
-                      ? 'Invoice Paid'
-                      : `Pay $${invoice.totalAmountUsdc.toFixed(2)} Now`}
-                </button>
+                    {isConnected && accountId ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-[#8e8a7f] flex justify-between">
+                          <span>Paying from:</span>
+                          <span className="font-mono text-[#f5f2eb] max-w-[170px] truncate">{accountId}</span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={busyAction !== null}
+                          onClick={handlePayWithConnectedWallet}
+                          className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-sm shadow-[0_0_20px_rgba(212,176,106,0.35)] transition flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          {busyAction === 'wallet_pay'
+                            ? 'Processing Payment...'
+                            : `Pay $${invoice.totalAmountUsdc.toFixed(2)} USDC from Wallet`}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={connect}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#221f17] hover:bg-[#2b271d] border border-[#d4b06a]/40 text-[#f5dfa8] font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Wallet className="w-4 h-4 text-[#d4b06a]" />
+                        Connect NEAR Wallet to Pay
+                      </button>
+                    )}
+                  </div>
 
-                {invoice.status !== 'PAID' && (
-                  <button
-                    type="button"
-                    disabled={busyAction !== null}
-                    onClick={handlePingPayX402}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#23221e] border border-[#2c2b26] text-[#d5d0c5] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Bot className="w-4 h-4 text-[#d4b06a]" />
-                    {busyAction === 'x402'
-                      ? 'Settling via PingPay...'
-                      : 'Pay via AI Agent (PingPay x402)'}
-                  </button>
-                )}
+                  <div className="flex items-center gap-3 text-xs text-[#6d695f]">
+                    <div className="h-px bg-[#262520] flex-1" />
+                    <span>or pay from other chains</span>
+                    <div className="h-px bg-[#262520] flex-1" />
+                  </div>
 
-                {invoice.status === 'PAID' && (
-                  <button
-                    type="button"
-                    disabled={busyAction !== null}
-                    onClick={handleRefundInvoice}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#281817] border border-[#2c2b26] hover:border-[#492826] text-[#8e8a7f] hover:text-[#d97b73] font-medium text-xs transition flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCcw className="w-3.5 h-3.5" />
-                    {busyAction === 'refund'
-                      ? 'Refunding...'
-                      : 'Issue Full Refund'}
-                  </button>
-                )}
-              </div>
+                  {/* Visual Clickable Token Grid */}
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-[#a39f93]">
+                      Pay With Token
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {tokens.map((t) => {
+                        const isSelected = t.assetId === selectedAssetId;
+                        return (
+                          <button
+                            key={t.assetId}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAssetId(t.assetId);
+                              handleRequest1ClickQuote(t.assetId);
+                            }}
+                            className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#221f17] border-[#d4b06a]/70 shadow-[0_0_15px_rgba(212,176,106,0.2)]'
+                                : 'bg-[#11110e] border-[#272622] hover:border-[#474337]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChainDot chain={t.chain} />
+                              <span className="text-xs font-semibold text-[#f5f2eb] truncate">
+                                {t.symbol.split(' ')[0]}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-[#8e8a7f] mt-0.5 truncate pl-4">
+                              {t.chain}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[#11110e] border border-[#272622] space-y-2 text-xs shadow-inner">
+                    <div className="flex justify-between text-[#8e8a7f]">
+                      <span>You Pay ({chosenToken?.chain})</span>
+                      <span className="font-semibold text-[#f5f2eb] text-sm tabular-nums">
+                        ~{estimatedOriginAmount} {chosenToken?.symbol.split(' ')[0]}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[#8e8a7f]">
+                      <span>Recipient Receives</span>
+                      <span className="font-semibold text-[#34d399] text-sm tabular-nums">
+                        ${invoice.totalAmountUsdc.toFixed(2)} USDC
+                      </span>
+                    </div>
+                    {quote && (
+                      <div className="pt-2 border-t border-[#22211d] text-[11px] text-[#6d695f]">
+                        1Click Deposit Address:{' '}
+                        <span className="font-mono text-[#8e8a7f] break-all">
+                          {quote.depositAddress}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <button
+                      type="button"
+                      disabled={busyAction !== null}
+                      onClick={handlePayWith1Click}
+                      className="w-full py-3 px-5 rounded-xl bg-[#1e1c17] hover:bg-[#28261e] border border-[#3b372c] hover:border-[#d4b06a]/50 text-[#f5f2eb] font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Zap className="w-4 h-4 text-[#d4b06a]" />
+                      {busyAction === 'pay'
+                        ? 'Processing Payment...'
+                        : `Pay ~${estimatedOriginAmount} ${chosenToken?.symbol.split(' ')[0]} via 1Click`}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={busyAction !== null}
+                      onClick={handlePingPayX402}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#1a1a17] hover:bg-[#23221e] border border-[#2c2b26] text-[#d5d0c5] font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Bot className="w-4 h-4 text-[#d4b06a]" />
+                      {busyAction === 'x402'
+                        ? 'Settling via PingPay...'
+                        : 'Pay via AI Agent (PingPay x402)'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

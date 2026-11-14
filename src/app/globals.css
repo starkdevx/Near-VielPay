@@ -16,25 +16,115 @@ body {
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   background-image:
-    radial-gradient(ellipse 75% 45% at 50% -10%, rgba(212, 176, 106, 0.09), transparent 70%),
+    radial-gradient(ellipse 85% 50% at 50% -12%, rgba(212, 176, 106, 0.14), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 95% 20%, rgba(52, 211, 153, 0.05), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 5% 45%, rgba(129, 140, 248, 0.04), transparent 60%),
     radial-gradient(rgba(245, 242, 235, 0.04) 1px, transparent 1px);
-  background-size: 100% 100%, 24px 24px;
+  background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px;
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
+/* Core Vault Cards */
 .vault-card {
-  background: linear-gradient(180deg, #161614 0%, #121210 100%);
+  background: linear-gradient(180deg, #161614 0%, #11110f 100%);
   border: 1px solid rgba(255, 250, 235, 0.08);
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
-    0 12px 32px -12px rgba(0, 0, 0, 0.65);
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 16px 36px -14px rgba(0, 0, 0, 0.7);
 }
 
 .vault-card-subtle {
-  background: rgba(20, 20, 18, 0.85);
+  background: rgba(18, 18, 16, 0.85);
   border: 1px solid rgba(255, 250, 235, 0.07);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Glowing Distinctive Cards */
+.vault-card-glow-gold {
+  background: linear-gradient(180deg, #181714 0%, #12110e 100%);
+  border: 1px solid rgba(212, 176, 106, 0.28);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 245, 220, 0.12),
+    0 0 28px -8px rgba(212, 176, 106, 0.18),
+    0 20px 40px -15px rgba(0, 0, 0, 0.75);
+}
+
+.vault-card-glow-emerald {
+  background: linear-gradient(180deg, #131a16 0%, #0f1411 100%);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  box-shadow:
+    inset 0 1px 0 0 rgba(167, 243, 208, 0.12),
+    0 0 30px -8px rgba(52, 211, 153, 0.18),
+    0 20px 40px -15px rgba(0, 0, 0, 0.75);
+}
+
+.vault-card-glow-indigo {
+  background: linear-gradient(180deg, #151620 0%, #0f1017 100%);
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  box-shadow:
+    inset 0 1px 0 0 rgba(199, 210, 254, 0.12),
+    0 0 28px -8px rgba(129, 140, 248, 0.18),
+    0 20px 40px -15px rgba(0, 0, 0, 0.75);
+}
+
+/* Gradient Typography */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #ffffff 0%, #fff1ce 35%, #e5be70 70%, #caa049 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-emerald {
+  background: linear-gradient(135deg, #ffffff 0%, #d1fae5 35%, #6ee7b7 70%, #10b981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-cyan {
+  background: linear-gradient(135deg, #ffffff 0%, #e0f2fe 35%, #7dd3fc 70%, #0284c7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-purple {
+  background: linear-gradient(135deg, #ffffff 0%, #f3e8ff 35%, #c084fc 70%, #9333ea 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-amber {
+  background: linear-gradient(135deg, #fffbeb 0%, #fde68a 50%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Metallic Badges with Ambient Glow */
+.badge-gold-glow {
+  background: rgba(212, 176, 106, 0.1);
+  border: 1px solid rgba(212, 176, 106, 0.35);
+  color: #f7dfa7;
+  box-shadow: 0 0 14px -2px rgba(212, 176, 106, 0.2);
+}
+
+.badge-emerald-glow {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+  box-shadow: 0 0 14px -2px rgba(52, 211, 153, 0.2);
+}
+
+.badge-purple-glow {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  color: #e9d5ff;
+  box-shadow: 0 0 14px -2px rgba(168, 85, 247, 0.2);
+}
+
+/* Glassy Shimmer Line */
+.shimmer-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(212, 176, 106, 0.3) 50%, transparent 100%);
 }

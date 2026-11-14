@@ -259,11 +259,11 @@ export default function InvoiceCheckoutPage() {
       <div className="min-h-screen flex flex-col items-center justify-center text-[#f5f2eb] p-6">
         <p className="text-lg font-serif mb-4">Invoice not found: {invoiceId}</p>
         <Link
-          href="/"
+          href="/app"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#d4b06a] text-[#0a0a09] font-semibold text-sm hover:bg-[#e2c17d]"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to NearVeil
+          Back to NearVeil App
         </Link>
       </div>
     );
@@ -298,7 +298,7 @@ export default function InvoiceCheckoutPage() {
             <NearVeilLogo size="sm" />
             <span className="h-5 w-px bg-[#272622] hidden sm:block" />
             <Link
-              href="/"
+              href="/app"
               className="inline-flex items-center gap-1.5 text-xs font-medium text-[#8e8a7f] hover:text-[#f5f2eb] transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />

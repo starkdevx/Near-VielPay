@@ -164,10 +164,10 @@ export default function MerchantCheckoutPage({
         <h1 className="text-2xl font-serif text-[#f5f2eb]">Checkout Link Unavailable</h1>
         <p className="text-sm text-[#8e8a7f] max-w-md">{error || 'This payment link does not exist.'}</p>
         <Link
-          href="/"
+          href="/app"
           className="px-4 py-2 rounded-xl bg-[#1c1a15] border border-[#d4b06a]/40 text-xs font-semibold text-[#f5ecd5] hover:bg-[#24211a] transition"
         >
-          Back to NearVeil
+          Back to NearVeil App
         </Link>
       </div>
     );
@@ -235,7 +235,7 @@ export default function MerchantCheckoutPage({
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10">
         <div className="mb-6">
           <Link
-            href="/"
+            href="/app"
             className="inline-flex items-center gap-1.5 text-xs text-[#8e8a7f] hover:text-[#f5ecd5] transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />

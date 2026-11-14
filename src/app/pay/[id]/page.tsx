@@ -318,6 +318,29 @@ export default function MerchantCheckoutPage({
                 </span>
               </div>
 
+              {link.imageUrl && (
+                <div className="relative rounded-2xl overflow-hidden border border-[#2f2b20] bg-[#13120e] shadow-[0_14px_32px_-12px_rgba(0,0,0,0.85)] group">
+                  <div className="aspect-[16/10] w-full overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={link.imageUrl}
+                      alt={link.title}
+                      onError={(e) => {
+                        const container = e.currentTarget.closest('div.relative');
+                        if (container instanceof HTMLElement) {
+                          container.style.display = 'none';
+                        }
+                      }}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    />
+                  </div>
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0c0c0a]/70 via-transparent to-transparent" />
+                  <div className="pointer-events-none absolute bottom-3 left-3 px-2.5 py-1 rounded-full bg-[#0c0c0a]/75 backdrop-blur-md border border-[#d4b06a]/30 text-[10px] font-mono uppercase tracking-wider text-[#f5dfa8]">
+                    {link.businessName}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2 pt-2 border-t border-[#25231d]">
                 <div className="text-[11px] font-mono text-[#6d695f]">
                   Checkout ID · {link.paymentId}

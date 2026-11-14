@@ -65,9 +65,17 @@ export async function POST(req: NextRequest) {
         .slice(0, 80);
       const title = String(body.title || '').trim().slice(0, 120);
       const description = String(body.description || '').trim().slice(0, 280);
+      const rawImageUrl = String(body.imageUrl || '').trim().slice(0, 500);
       const amountUsdc = Number(body.amountUsdc);
       const linkType =
         body.linkType === 'ONE_TIME' ? 'ONE_TIME' : 'REUSABLE';
+
+      if (rawImageUrl && !/^https?:\/\//i.test(rawImageUrl)) {
+        return NextResponse.json(
+          { error: 'Item image URL must start with https:// or http://.' },
+          { status: 400 }
+        );
+      }
 
       if (!merchantAccountId) {
         return NextResponse.json(
@@ -89,6 +97,7 @@ export async function POST(req: NextRequest) {
         businessName: businessName || merchantAccountId,
         title,
         description: description || undefined,
+        imageUrl: rawImageUrl || undefined,
         amountUsdc: Number(amountUsdc.toFixed(2)),
         linkType,
         status: 'ACTIVE',

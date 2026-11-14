@@ -182,6 +182,7 @@ export default function NearVeilHomePage() {
   const [merchantBusinessName, setMerchantBusinessName] = useState<string>('');
   const [merchantTitle, setMerchantTitle] = useState<string>('');
   const [merchantDescription, setMerchantDescription] = useState<string>('');
+  const [merchantImageUrl, setMerchantImageUrl] = useState<string>('');
   const [merchantAmountUsdc, setMerchantAmountUsdc] = useState<string>('25');
   const [merchantLinkType, setMerchantLinkType] = useState<'REUSABLE' | 'ONE_TIME'>('REUSABLE');
 
@@ -762,6 +763,7 @@ export default function NearVeilHomePage() {
           businessName: merchantBusinessName.trim() || accountId,
           title: merchantTitle,
           description: merchantDescription,
+          imageUrl: merchantImageUrl.trim() || undefined,
           amountUsdc: Number(merchantAmountUsdc),
           linkType: merchantLinkType,
         }),
@@ -775,6 +777,7 @@ export default function NearVeilHomePage() {
       await fetchMerchantLinks();
       setMerchantTitle('');
       setMerchantDescription('');
+      setMerchantImageUrl('');
       setToast({
         type: 'success',
         message: `Checkout link ${data.link.paymentId} created! Share /pay/${data.link.paymentId} with customers.`,
@@ -825,17 +828,17 @@ export default function NearVeilHomePage() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Sidebar */}
-      <aside className="lg:w-64 bg-[#10100e]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
-        <div className="p-4 lg:p-5">
-          <Link href="/" className="block mb-6 lg:mb-8 hover:opacity-90 transition">
+      <aside className="lg:w-52 bg-[#10100e]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
+        <div className="p-3.5 lg:p-4">
+          <Link href="/" className="block mb-5 lg:mb-6 hover:opacity-90 transition">
             <NearVeilLogo />
           </Link>
 
-          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2.5 px-3 hidden lg:block">
+          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2 px-2.5 hidden lg:block">
             Workspace
           </div>
 
-          <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -844,7 +847,7 @@ export default function NearVeilHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                  className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] transition-all duration-150 whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-gradient-to-r from-[#211f18] to-[#171612] text-[#f5f2eb] font-medium border border-[#d4b06a]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_12px_-4px_rgba(0,0,0,0.5)]'
                       : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
@@ -877,7 +880,7 @@ export default function NearVeilHomePage() {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Top Navbar: Role Switcher & Wallet Adapter */}
         <header className="sticky top-0 z-30 border-b border-[#2e2c26] bg-[#0c0c0a]/92 backdrop-blur-md shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]">
-          <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
             {/* Role Switcher: ONLY for Private Payroll section */}
             <div className="flex items-center gap-3">
               {activeTab === 'payroll' ? (
@@ -983,7 +986,7 @@ export default function NearVeilHomePage() {
           </div>
         </header>
 
-        <div className="max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 lg:py-9">
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-8 py-8 lg:py-9">
           {/* Toast Notification */}
           {toast && (
             <div
@@ -2306,6 +2309,29 @@ export default function NearVeilHomePage() {
                         </div>
 
                         <div>
+                          <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1">
+                            Item Image Link (Optional)
+                          </label>
+                          <input
+                            type="url"
+                            value={merchantImageUrl}
+                            onChange={(e) => setMerchantImageUrl(e.target.value)}
+                            placeholder="https://example.com/product.png"
+                            className="w-full px-3.5 py-2 rounded-xl bg-[#12120f] border border-[#2c2a22] focus:border-[#d4b06a]/60 outline-none text-sm text-[#f5f2eb] placeholder-[#5e5b52]"
+                          />
+                          {merchantImageUrl.trim() && /^https?:\/\//i.test(merchantImageUrl.trim()) && (
+                            <div className="mt-2 rounded-xl overflow-hidden border border-[#2c2a22] bg-[#10100d] h-28 flex items-center justify-center">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={merchantImageUrl.trim()}
+                                alt="Item preview"
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
                           <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1.5">
                             Checkout Mode
                           </label>
@@ -2389,11 +2415,22 @@ export default function NearVeilHomePage() {
                               className="vault-card rounded-2xl p-4 sm:p-5 space-y-3 hover:border-[#d4b06a]/35 transition"
                             >
                               <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-semibold text-[#f5f2eb]">
-                                      {link.title}
-                                    </span>
+                                <div className="flex items-start gap-3">
+                                  {link.imageUrl && (
+                                    <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#2e2b22] bg-[#13120e] shrink-0">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={link.imageUrl}
+                                        alt={link.title}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-semibold text-[#f5f2eb]">
+                                        {link.title}
+                                      </span>
                                     <span
                                       className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
                                         link.status === 'ACTIVE'
@@ -2411,6 +2448,7 @@ export default function NearVeilHomePage() {
                                   </div>
                                   <div className="text-xs text-[#8e8a7f] mt-1 font-mono">
                                     {link.paymentId} · {link.salesCount} {link.salesCount === 1 ? 'sale' : 'sales'} · ${link.totalCollectedUsdc.toFixed(2)} collected
+                                  </div>
                                   </div>
                                 </div>
 

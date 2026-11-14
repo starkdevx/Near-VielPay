@@ -120,6 +120,7 @@ export interface MerchantPaymentLink {
   businessName: string;
   title: string;
   description?: string;
+  imageUrl?: string;
   amountUsdc: number;
   linkType: 'REUSABLE' | 'ONE_TIME';
   status: 'ACTIVE' | 'PAID' | 'ARCHIVED';

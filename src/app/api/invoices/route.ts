@@ -73,10 +73,23 @@ export async function GET(req: NextRequest) {
   const accountId = searchParams.get('accountId');
   let liveWalletBalances = null;
   if (accountId) {
-    liveWalletBalances = await fetchLiveAccountBalances(accountId);
+    try {
+      liveWalletBalances = await fetchLiveAccountBalances(accountId);
+    } catch {
+      liveWalletBalances = null;
+    }
   }
 
-  const { tokens, liveApiConnected } = await fetchOneClickTokens();
+  let tokens: Awaited<ReturnType<typeof fetchOneClickTokens>>['tokens'] = [];
+  let liveApiConnected = false;
+  try {
+    const res = await fetchOneClickTokens();
+    tokens = res.tokens;
+    liveApiConnected = res.liveApiConnected;
+  } catch {
+    tokens = [];
+    liveApiConnected = false;
+  }
 
   // Check if the supplied viewingKey is valid for decrypting notes
   const sampleNote = ledger.invoices[0]?.encryptedViewingNote;

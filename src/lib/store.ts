@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { MerchantPaymentLink, NearVeilInvoice, PrivatePayrollBatch } from './types';
 
@@ -9,8 +10,28 @@ export interface LedgerData {
   stealthClaimedBalanceUsdc: number;
 }
 
+// In-memory fallback for serverless/ephemeral environments (e.g. Vercel)
+let inMemoryLedger: LedgerData | null = null;
+
+function isDirWritable(dir: string): boolean {
+  try {
+    fs.accessSync(dir, fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getStorageDir(): string {
+  const cwd = path.resolve(process.cwd());
+  if (!process.env.VERCEL && isDirWritable(cwd)) {
+    return cwd;
+  }
+  return os.tmpdir();
+}
+
 function getSafeLedgerFilePath(): string {
-  const baseDir = path.resolve(process.cwd());
+  const baseDir = getStorageDir();
   const fileName = path.basename('.nearveil-ledger.json');
   const resolved = path.resolve(baseDir, fileName);
   if (!resolved.startsWith(baseDir + path.sep)) {
@@ -20,7 +41,7 @@ function getSafeLedgerFilePath(): string {
 }
 
 function getSafeBackupFilePath(): string {
-  const baseDir = path.resolve(process.cwd());
+  const baseDir = getStorageDir();
   const fileName = path.basename('.nearveil-ledger.bak.json');
   const resolved = path.resolve(baseDir, fileName);
   if (!resolved.startsWith(baseDir + path.sep)) {
@@ -43,25 +64,43 @@ export function readLedger(): LedgerData {
   const backupPath = getSafeBackupFilePath();
 
   if (!fs.existsSync(filePath)) {
+    // Check if a backup exists in writable dir
     if (fs.existsSync(backupPath)) {
       try {
         const bakData = fs.readFileSync(backupPath, 'utf8');
-        fs.writeFileSync(filePath, bakData, { mode: 0o600 });
+        try {
+          fs.writeFileSync(filePath, bakData, { mode: 0o600 });
+        } catch {
+          // ignore write error
+        }
         const parsed = JSON.parse(bakData) as Partial<LedgerData>;
-        return {
+        const data: LedgerData = {
           invoices: parsed.invoices || [],
           payrollBatches: parsed.payrollBatches || [],
           merchantLinks: parsed.merchantLinks || [],
           stealthClaimedBalanceUsdc: parsed.stealthClaimedBalanceUsdc ?? 0,
         };
+        inMemoryLedger = data;
+        return data;
       } catch {
         // fallback
       }
     }
+
+    if (inMemoryLedger) {
+      return inMemoryLedger;
+    }
+
     const initial = createInitialSeedData();
-    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), { mode: 0o600 });
+    inMemoryLedger = initial;
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), { mode: 0o600 });
+    } catch {
+      // Safe no-op if filesystem is read-only
+    }
     return initial;
   }
+
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw) as Partial<LedgerData>;
@@ -82,38 +121,50 @@ export function readLedger(): LedgerData {
           (bakParsed.invoices && bakParsed.invoices.length > 0) ||
           (bakParsed.merchantLinks && bakParsed.merchantLinks.length > 0)
         ) {
-          return {
+          const restored: LedgerData = {
             invoices: bakParsed.invoices || [],
             payrollBatches: bakParsed.payrollBatches || [],
             merchantLinks: bakParsed.merchantLinks || [],
             stealthClaimedBalanceUsdc: bakParsed.stealthClaimedBalanceUsdc ?? 0,
           };
+          inMemoryLedger = restored;
+          return restored;
         }
       } catch {
         // fallback
       }
     }
 
-    return {
+    const data: LedgerData = {
       invoices,
       payrollBatches,
       merchantLinks,
       stealthClaimedBalanceUsdc: parsed.stealthClaimedBalanceUsdc ?? 0,
     };
+    inMemoryLedger = data;
+    return data;
   } catch {
+    if (inMemoryLedger) {
+      return inMemoryLedger;
+    }
     const initial = createInitialSeedData();
-    fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), { mode: 0o600 });
+    inMemoryLedger = initial;
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), { mode: 0o600 });
+    } catch {
+      // ignore
+    }
     return initial;
   }
 }
 
 export function writeLedger(data: LedgerData): void {
+  inMemoryLedger = data;
   const filePath = getSafeLedgerFilePath();
   const backupPath = getSafeBackupFilePath();
 
-  // If existing file has meaningful records, make sure backup is kept
-  if (fs.existsSync(filePath)) {
-    try {
+  try {
+    if (fs.existsSync(filePath)) {
       const existing = fs.readFileSync(filePath, 'utf8');
       const parsed = JSON.parse(existing) as Partial<LedgerData>;
       if (
@@ -123,11 +174,14 @@ export function writeLedger(data: LedgerData): void {
       ) {
         fs.writeFileSync(backupPath, existing, { mode: 0o600 });
       }
-    } catch {
-      // ignore backup write errors
     }
+  } catch {
+    // ignore backup write errors
   }
 
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), { mode: 0o600 });
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), { mode: 0o600 });
+  } catch {
+    // Safe fallback to in-memory ledger on read-only filesystems
+  }
 }
-

@@ -97,7 +97,7 @@ async function checkStorageRegistered(
 ): Promise<boolean> {
   try {
     const argsBase64 = btoa(JSON.stringify({ account_id: accountId }));
-    const res = await fetch('https://test.rpc.fastnear.com', {
+    const res = await fetch('/api/near-rpc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,7 +162,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async function initWalletSelector() {
       try {
         const selector = await setupWalletSelector({
-          network: 'testnet',
+          network: {
+            networkId: 'testnet',
+            nodeUrl: `${window.location.origin}/api/near-rpc`,
+            helperUrl: 'https://helper.testnet.near.org',
+            explorerUrl: 'https://testnet.nearblocks.io',
+            indexerUrl: 'https://test.api.fastnear.com/v0',
+          },
           modules: [setupMeteorWallet()],
         });
 

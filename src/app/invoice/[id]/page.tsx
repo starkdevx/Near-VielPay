@@ -49,9 +49,7 @@ export default function InvoiceCheckoutPage() {
       setInvoice(found || null);
       const tokenList: OneClickTokenOption[] = data.oneClickTokens || [];
       setTokens(tokenList);
-      if (!selectedAssetId && tokenList.length > 0) {
-        setSelectedAssetId(tokenList[2]?.assetId || tokenList[0].assetId);
-      }
+      setSelectedAssetId((prev) => prev || tokenList[2]?.assetId || tokenList[0]?.assetId || '');
       setDefaultViewingKey(data.testnetInfo?.defaultViewingKey || '');
     } catch {
       setBannerMessage({
@@ -61,7 +59,7 @@ export default function InvoiceCheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, [invoiceId, selectedAssetId]);
+  }, [invoiceId]);
 
   useEffect(() => {
     loadData();

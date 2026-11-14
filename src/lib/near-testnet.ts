@@ -48,7 +48,7 @@ export function getTestnetConfig(): TestnetConfig {
     cachedConfig = {
       networkId: 'testnet',
       rpcUrl: process.env.NEAR_TESTNET_RPC || 'https://rpc.testnet.near.org',
-      explorerBaseUrl: 'https://test.nearblocks.io',
+      explorerBaseUrl: 'https://testnet.nearblocks.io',
       contractAccountId: process.env.NEARVEIL_CONTRACT_ID,
       contractPublicKey: '',
       contractPrivateKey: process.env.NEARVEIL_CONTRACT_KEY || process.env.NEARVEIL_RELAYER_KEY,
@@ -76,7 +76,7 @@ export function getTestnetConfig(): TestnetConfig {
   cachedConfig = {
     networkId: 'testnet',
     rpcUrl: 'https://rpc.testnet.near.org',
-    explorerBaseUrl: 'https://test.nearblocks.io',
+    explorerBaseUrl: 'https://testnet.nearblocks.io',
     contractAccountId: `nearveil-vault-${suffix}.testnet`,
     contractPublicKey: ephemeralKey.getPublicKey().toString(),
     contractPrivateKey: ephemeralKey.toString(),

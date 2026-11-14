@@ -87,7 +87,7 @@ async function main() {
     config = {
       networkId: 'testnet',
       rpcUrl: RPC_URL,
-      explorerBaseUrl: 'https://test.nearblocks.io',
+      explorerBaseUrl: 'https://testnet.nearblocks.io',
       contractAccountId,
       contractPublicKey: contractKeyPair.getPublicKey().toString(),
       contractPrivateKey: contractKeyPair.toString(),

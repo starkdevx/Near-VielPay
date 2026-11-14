@@ -29,7 +29,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'NearVeil — Private Treasury, Invoicing & Payroll on NEAR',
   description:
-    'Send invoices, settle from any chain in USDC with zero gas fees, and run Umbra-style private payroll on NEAR Testnet.',
+    'Send invoices, settle from any chain in USDC with zero gas fees, and run private payroll on NEAR Testnet.',
 };
 
 export default function RootLayout({

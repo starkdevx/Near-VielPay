@@ -29,7 +29,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://rpc.testnet.near.org https://archival-rpc.testnet.near.org https://1click.chaindefuser.com https://helper.testnet.near.org; frame-ancestors 'none'; object-src 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://rpc.testnet.near.org https://archival-rpc.testnet.near.org https://1click.chaindefuser.com https://helper.testnet.near.org; frame-ancestors 'none'; object-src 'none';",
           },
         ],
       },

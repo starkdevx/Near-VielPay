@@ -149,9 +149,7 @@ export default function NearVeilHomePage() {
       setTokens(data.oneClickTokens || []);
       setFaucetBalance(data.faucetUsdcBalance ?? 25000);
       setStealthClaimedBalance(data.stealthClaimedBalanceUsdc ?? 0);
-      if (!viewingKeyInput && data.testnetInfo?.defaultViewingKey) {
-        setViewingKeyInput(data.testnetInfo.defaultViewingKey);
-      }
+      setViewingKeyInput((prev) => prev || data.testnetInfo?.defaultViewingKey || '');
     } catch {
       setToast({
         type: 'error',
@@ -160,7 +158,7 @@ export default function NearVeilHomePage() {
     } finally {
       setLoading(false);
     }
-  }, [viewingKeyInput]);
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
@@ -404,17 +402,17 @@ export default function NearVeilHomePage() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Sidebar */}
-      <aside className="lg:w-72 bg-[#11110f]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
-        <div className="p-6">
-          <div className="mb-8">
+      <aside className="lg:w-60 bg-[#11110f]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
+        <div className="p-4 lg:p-5">
+          <div className="mb-6 lg:mb-7">
             <NearVeilLogo />
           </div>
 
-          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2.5 px-3 hidden lg:block">
+          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2 px-3 hidden lg:block">
             Workspace
           </div>
 
-          <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -423,7 +421,7 @@ export default function NearVeilHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
                     isActive
                       ? 'bg-[#1d1c18] text-[#f5f2eb] font-medium border border-[#d4b06a]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
                       : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
@@ -442,7 +440,7 @@ export default function NearVeilHomePage() {
         </div>
 
         {/* Bottom Testnet Vault Card */}
-        <div className="hidden lg:block p-4 m-5 rounded-2xl vault-card space-y-3">
+        <div className="hidden lg:block p-3.5 m-3.5 rounded-2xl vault-card space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[#8e8a7f] flex items-center gap-1.5">
               <Coins className="w-3.5 h-3.5 text-[#d4b06a]" />
@@ -789,7 +787,7 @@ export default function NearVeilHomePage() {
             <div className="space-y-6">
               <div>
                 <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
-                  Umbra-Style Confidentiality
+                  Confidential Settlement
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
                   Private Payroll
@@ -835,21 +833,14 @@ export default function NearVeilHomePage() {
                     <label className="block text-xs text-[#8e8a7f] mb-1.5">
                       Funding Currency
                     </label>
-                    <select
-                      value={`${payrollOriginAsset}|${payrollOriginChain}`}
-                      onChange={(e) => {
-                        const [sym, ch] = e.target.value.split('|');
-                        setPayrollOriginAsset(sym);
-                        setPayrollOriginChain(ch);
-                      }}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
-                    >
-                      {tokens.map((t) => (
-                        <option key={t.assetId} value={`${t.symbol}|${t.chain}`}>
-                          {t.symbol} ({t.chain})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2c2b26] text-sm text-[#f5f2eb]">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block h-2 w-2 rounded-full bg-[#77b28c] ring-4 ring-[#77b28c]/25" />
+                        <span className="font-medium">USDC</span>
+                        <span className="text-xs text-[#8e8a7f]">(NEAR Testnet)</span>
+                      </div>
+                      <span className="text-xs text-[#77b28c] font-mono">1:1 USD</span>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -912,24 +903,40 @@ export default function NearVeilHomePage() {
                             placeholder="Role"
                             className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f]"
                           />
-                          <div className="sm:col-span-3 relative">
-                            <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
-                              $
-                            </span>
-                            <input
-                              type="number"
-                              min={1}
-                              value={rec.amountUsdc}
-                              onChange={(e) => {
-                                const val = Math.max(1, Number(e.target.value));
-                                setPayrollRecipients((prev) =>
-                                  prev.map((r, i) =>
-                                    i === idx ? { ...r, amountUsdc: val } : r
+                          <div className="sm:col-span-3 flex items-center gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
+                                $
+                              </span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={rec.amountUsdc}
+                                onChange={(e) => {
+                                  const val = Math.max(1, Number(e.target.value));
+                                  setPayrollRecipients((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, amountUsdc: val } : r
+                                    )
+                                  );
+                                }}
+                                className="w-full pl-7 pr-2.5 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums"
+                              />
+                            </div>
+                            {payrollRecipients.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPayrollRecipients((prev) =>
+                                    prev.filter((r) => r.id !== rec.id)
                                   )
-                                );
-                              }}
-                              className="w-full pl-7 pr-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums"
-                            />
+                                }
+                                title="Remove member"
+                                className="p-2 rounded-lg text-[#6d695f] hover:text-[#d97b73] hover:bg-[#281817] transition cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}

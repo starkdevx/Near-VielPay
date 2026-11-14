@@ -9,6 +9,7 @@ import {
 } from '@/lib/near-testnet';
 import {
   decryptViewingNote,
+  deriveStealthMetaAddress,
   generateStealthBundle,
   verifyClaimCommitment,
 } from '@/lib/umbra-stealth';
@@ -400,6 +401,7 @@ export async function POST(req: NextRequest) {
     // 6. Execute Umbra-Style Private Batch Payroll on NEAR Testnet
     if (action === 'create_private_payroll') {
       const companyName = String(body.companyName || 'Acme Corp').trim().slice(0, 100);
+      const employerAccountId = String(body.employerAccountId || '').trim().slice(0, 80);
       const payPeriodLabel = String(body.payPeriodLabel || 'Nov 2026 Bi-Weekly').trim().slice(0, 80);
       const fundingOriginChain = String(body.fundingOriginChain || 'NEAR Testnet');
       const fundingOriginAsset = String(body.fundingOriginAsset || 'USDC (NEAR Testnet)');
@@ -433,6 +435,8 @@ export async function POST(req: NextRequest) {
         totalBatchUsdc += amountUsdc;
         const slipId = `PAY-2026-${Math.floor(1000 + Math.random() * 9000)}`;
         const lineDesc = `Private Payroll (${payPeriodLabel}) - ${r.roleOrDepartment || 'Engineering'}`;
+        const recipientMeta = String(r.stealthMetaAddress || '').trim() ||
+          deriveStealthMetaAddress(String(r.referenceCode || r.contractorName || `EMP-${i + 101}`));
 
         const bundle = generateStealthBundle(
           slipId,
@@ -447,7 +451,8 @@ export async function POST(req: NextRequest) {
             totalUsdc: amountUsdc,
             issuedAtUtc: issueDate,
           },
-          config.defaultViewingKey
+          config.defaultViewingKey,
+          recipientMeta
         );
 
         onChainCommitments.push({
@@ -481,13 +486,15 @@ export async function POST(req: NextRequest) {
           status: 'PAID',
           privacyEnabled: true,
           stealthImplicitAccount: bundle.stealthImplicitAccount,
+          stealthMetaAddress: recipientMeta,
+          autoDisbursed: true,
           ephemeralPubKeyHex: bundle.ephemeralPubKeyHex,
           viewTag: bundle.viewTag,
           stealthCommitmentHash: bundle.stealthCommitmentHash,
           encryptedViewingNote: bundle.encryptedViewingNote,
           claimSecretHint: bundle.claimSecret,
-          claimedToStealthWallet: false,
-          claimedDestinationAccount: null,
+          claimedToStealthWallet: true,
+          claimedDestinationAccount: bundle.stealthImplicitAccount,
           selectedOriginAsset: fundingOriginAsset,
           selectedOriginChain: fundingOriginChain,
           oneClickQuoteId: `1click_batch_${batchId.toLowerCase()}`,
@@ -521,12 +528,15 @@ export async function POST(req: NextRequest) {
         slip.creationTxUrl = relayResult.txUrl;
         slip.settlementTxHash = relayResult.txHash;
         slip.settlementTxUrl = relayResult.txUrl;
+        slip.stealthClaimTxHash = relayResult.txHash;
+        slip.stealthClaimTxUrl = relayResult.txUrl;
         ledger.invoices.unshift(slip);
       }
 
       const batchRecord = {
         batchId,
         companyName,
+        ...(employerAccountId ? { employerAccountId } : {}),
         payPeriodLabel,
         createdAtUtc: nowIso,
         fundingOriginChain,
@@ -542,6 +552,9 @@ export async function POST(req: NextRequest) {
       ledger.faucetUsdcBalance = Math.max(
         0,
         Number((ledger.faucetUsdcBalance - totalBatchUsdc).toFixed(2))
+      );
+      ledger.stealthClaimedBalanceUsdc = Number(
+        (ledger.stealthClaimedBalanceUsdc + totalBatchUsdc).toFixed(2)
       );
       writeLedger(ledger);
 

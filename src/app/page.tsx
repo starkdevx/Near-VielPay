@@ -27,8 +27,12 @@ import {
   Coins,
   Zap,
   ArrowUpRight,
+  LogOut,
+  Building2,
+  UserCheck,
 } from 'lucide-react';
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
+import { useNearWallet } from '@/components/WalletProvider';
 import {
   InvoiceLineItem,
   NearVeilInvoice,
@@ -52,10 +56,23 @@ interface TestnetInfo {
 }
 
 export default function NearVeilHomePage() {
+  const {
+    accountId,
+    stealthMetaAddress,
+    isConnected,
+    connect,
+    disconnect,
+    deriveClientStealthMeta,
+  } = useNearWallet();
+
+  const [viewRole, setViewRole] = useState<'employer' | 'employee'>('employer');
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payroll' | 'accounting' | 'security'
   >('invoices');
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [showAllEmployeeSlips, setShowAllEmployeeSlips] = useState<boolean>(true);
+  const [guestEmployeeId, setGuestEmployeeId] = useState<string>('EMP-101');
+  const [guestMetaAddress, setGuestMetaAddress] = useState<string>('');
 
   const [testnetInfo, setTestnetInfo] = useState<TestnetInfo | null>(null);
   const [invoices, setInvoices] = useState<NearVeilInvoice[]>([]);
@@ -163,6 +180,22 @@ export default function NearVeilHomePage() {
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  useEffect(() => {
+    if (accountId) {
+      setFreelancerAccount(accountId);
+    }
+  }, [accountId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    deriveClientStealthMeta(guestEmployeeId || 'EMP-101').then((meta) => {
+      if (!cancelled) setGuestMetaAddress(meta);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [guestEmployeeId, deriveClientStealthMeta]);
 
   const invoiceSubtotal = lineItems.reduce(
     (acc, item) => acc + item.quantity * item.unitPriceUsd,
@@ -321,6 +354,7 @@ export default function NearVeilHomePage() {
         body: JSON.stringify({
           action: 'create_private_payroll',
           companyName,
+          employerAccountId: accountId || undefined,
           payPeriodLabel,
           fundingOriginChain: payrollOriginChain,
           fundingOriginAsset: payrollOriginAsset,
@@ -408,35 +442,48 @@ export default function NearVeilHomePage() {
             <NearVeilLogo />
           </div>
 
-          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2 px-3 hidden lg:block">
-            Workspace
-          </div>
+          {viewRole === 'employer' ? (
+            <>
+              <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2 px-3 hidden lg:block">
+                Employer Workspace
+              </div>
 
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                    isActive
-                      ? 'bg-[#1d1c18] text-[#f5f2eb] font-medium border border-[#d4b06a]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                      : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
-                  }`}
-                >
-                  <Icon
-                    className={`w-4 h-4 ${
-                      isActive ? 'text-[#d4b06a]' : 'text-[#6d695f]'
-                    }`}
-                  />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
+              <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1d1c18] text-[#f5f2eb] font-medium border border-[#d4b06a]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                          : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-4 h-4 ${
+                          isActive ? 'text-[#d4b06a]' : 'text-[#6d695f]'
+                        }`}
+                      />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </>
+          ) : (
+            <div className="px-3 py-3 rounded-xl bg-[#151714] border border-[#77b28c]/25 space-y-1.5">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-[#77b28c]">
+                Employee Portal
+              </div>
+              <p className="text-xs text-[#8e8a7f] leading-relaxed">
+                Share your Stealth Meta-Address once during onboarding. Paychecks arrive automatically—no claim step needed.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Bottom Testnet Vault Card */}
@@ -472,8 +519,79 @@ export default function NearVeilHomePage() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0">
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 lg:py-10">
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Top Navbar: Role Switcher & Wallet Adapter */}
+        <header className="sticky top-0 z-30 border-b border-[#272622] bg-[#0e0e0c]/90 backdrop-blur-md">
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
+            {/* Role Switcher: Employer vs Employee View */}
+            <div className="flex items-center gap-3">
+              <div className="p-1 rounded-xl bg-[#151513] border border-[#272622] flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setViewRole('employer')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer ${
+                    viewRole === 'employer'
+                      ? 'bg-[#1f1e1a] text-[#d4b06a] border border-[#d4b06a]/30 shadow-sm'
+                      : 'text-[#8e8a7f] hover:text-[#f5f2eb] border border-transparent'
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  Employer View
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewRole('employee')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition cursor-pointer ${
+                    viewRole === 'employee'
+                      ? 'bg-[#17211b] text-[#77b28c] border border-[#77b28c]/30 shadow-sm'
+                      : 'text-[#8e8a7f] hover:text-[#f5f2eb] border border-transparent'
+                  }`}
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  Employee View
+                </button>
+              </div>
+            </div>
+
+            {/* Right: NEAR Testnet Badge + Wallet Connect */}
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#151513] border border-[#272622] text-[11px] font-mono text-[#8e8a7f]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#77b28c]" />
+                NEAR Testnet
+              </span>
+
+              {isConnected && accountId ? (
+                <div className="pl-3 pr-1.5 py-1 rounded-xl bg-[#161613] border border-[#d4b06a]/35 flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#77b28c]" />
+                    <span className="text-xs font-mono text-[#f5f2eb] max-w-[160px] truncate">
+                      {accountId}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={disconnect}
+                    title="Disconnect Wallet"
+                    className="p-1.5 rounded-lg text-[#8e8a7f] hover:text-[#d97b73] hover:bg-[#231917] transition cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={connect}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] text-xs font-semibold flex items-center gap-2 shadow-[0_4px_16px_-4px_rgba(212,176,106,0.35)] transition cursor-pointer"
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  Connect NEAR Wallet
+                </button>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 lg:py-9">
           {/* Toast Notification */}
           {toast && (
             <div
@@ -513,7 +631,7 @@ export default function NearVeilHomePage() {
           )}
 
           {/* TAB 1: INVOICES */}
-          {activeTab === 'invoices' && (
+          {viewRole === 'employer' && activeTab === 'invoices' && (
             <div className="space-y-7">
               {/* Editorial Header */}
               <div className="flex flex-wrap items-end justify-between gap-4">
@@ -783,7 +901,7 @@ export default function NearVeilHomePage() {
           )}
 
           {/* TAB 2: PRIVATE PAYROLL */}
-          {activeTab === 'payroll' && (
+          {viewRole === 'employer' && activeTab === 'payroll' && (
             <div className="space-y-6">
               <div>
                 <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
@@ -873,70 +991,105 @@ export default function NearVeilHomePage() {
                       {payrollRecipients.map((rec, idx) => (
                         <div
                           key={rec.id}
-                          className="p-3 rounded-xl bg-[#10100e] border border-[#272622] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
+                          className="p-3 rounded-xl bg-[#10100e] border border-[#272622] space-y-2.5"
                         >
-                          <input
-                            type="text"
-                            value={rec.contractorName}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setPayrollRecipients((prev) =>
-                                prev.map((r, i) =>
-                                  i === idx ? { ...r, contractorName: val } : r
-                                )
-                              );
-                            }}
-                            placeholder="Full Name"
-                            className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#f5f2eb]"
-                          />
-                          <input
-                            type="text"
-                            value={rec.roleOrDepartment}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setPayrollRecipients((prev) =>
-                                prev.map((r, i) =>
-                                  i === idx ? { ...r, roleOrDepartment: val } : r
-                                )
-                              );
-                            }}
-                            placeholder="Role"
-                            className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f]"
-                          />
-                          <div className="sm:col-span-3 flex items-center gap-2">
-                            <div className="relative flex-1">
-                              <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
-                                $
-                              </span>
-                              <input
-                                type="number"
-                                min={1}
-                                value={rec.amountUsdc}
-                                onChange={(e) => {
-                                  const val = Math.max(1, Number(e.target.value));
-                                  setPayrollRecipients((prev) =>
-                                    prev.map((r, i) =>
-                                      i === idx ? { ...r, amountUsdc: val } : r
-                                    )
-                                  );
-                                }}
-                                className="w-full pl-7 pr-2.5 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums"
-                              />
-                            </div>
-                            {payrollRecipients.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPayrollRecipients((prev) =>
-                                    prev.filter((r) => r.id !== rec.id)
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                            <input
+                              type="text"
+                              value={rec.contractorName}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPayrollRecipients((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx ? { ...r, contractorName: val } : r
                                   )
-                                }
-                                title="Remove member"
-                                className="p-2 rounded-lg text-[#6d695f] hover:text-[#d97b73] hover:bg-[#281817] transition cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                                );
+                              }}
+                              placeholder="Full Name"
+                              className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#f5f2eb]"
+                            />
+                            <input
+                              type="text"
+                              value={rec.roleOrDepartment}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPayrollRecipients((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx ? { ...r, roleOrDepartment: val } : r
+                                  )
+                                );
+                              }}
+                              placeholder="Role"
+                              className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f]"
+                            />
+                            <div className="sm:col-span-3 flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={rec.amountUsdc}
+                                  onChange={(e) => {
+                                    const val = Math.max(1, Number(e.target.value));
+                                    setPayrollRecipients((prev) =>
+                                      prev.map((r, i) =>
+                                        i === idx ? { ...r, amountUsdc: val } : r
+                                      )
+                                    );
+                                  }}
+                                  className="w-full pl-7 pr-2.5 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums"
+                                />
+                              </div>
+                              {payrollRecipients.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPayrollRecipients((prev) =>
+                                      prev.filter((r) => r.id !== rec.id)
+                                    )
+                                  }
+                                  title="Remove member"
+                                  className="p-2 rounded-lg text-[#6d695f] hover:text-[#d97b73] hover:bg-[#281817] transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={rec.stealthMetaAddress || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setPayrollRecipients((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx ? { ...r, stealthMetaAddress: val } : r
+                                  )
+                                );
+                              }}
+                              placeholder="Employee Stealth Meta-Address (nv_meta_... — optional, auto-derived if blank)"
+                              className="flex-1 px-3 py-1.5 rounded-lg bg-[#0d0d0c] border border-[#24231f] text-xs font-mono text-[#d4b06a] placeholder:text-[#57544c] focus:outline-none focus:border-[#d4b06a]"
+                            />
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const meta = await deriveClientStealthMeta(
+                                  rec.referenceCode || rec.contractorName || rec.id
+                                );
+                                setPayrollRecipients((prev) =>
+                                  prev.map((r, i) =>
+                                    i === idx ? { ...r, stealthMetaAddress: meta } : r
+                                  )
+                                );
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-[#181815] hover:bg-[#22211d] border border-[#2c2b26] text-[11px] font-mono text-[#c5c0b5] cursor-pointer shrink-0"
+                            >
+                              Auto-Fill
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -959,8 +1112,8 @@ export default function NearVeilHomePage() {
                     >
                       <Lock className="w-4 h-4" />
                       {busyKey === 'run_payroll'
-                        ? 'Processing Private Run...'
-                        : 'Pay Team Privately'}
+                        ? 'Auto-Disbursing Payroll...'
+                        : 'Pay Team Privately (Auto-Disburse)'}
                     </button>
                   </div>
                 </form>
@@ -1014,32 +1167,40 @@ export default function NearVeilHomePage() {
 
                   {payrollRecords.length > 0 && (
                     <div className="vault-card rounded-2xl p-5 space-y-3">
-                      <h3 className="font-medium text-sm text-[#f5f2eb]">
-                        Employee Private Claims ({payrollRecords.length})
-                      </h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-sm text-[#f5f2eb]">
+                          Auto-Disbursed Payouts ({payrollRecords.length})
+                        </h3>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#77b28c]">
+                          Zero Claim Needed
+                        </span>
+                      </div>
                       <div className="space-y-2.5">
                         {payrollRecords.map((slip) => (
                           <div
                             key={slip.invoiceId}
                             className="p-3 rounded-xl bg-[#10100e] border border-[#272622] flex items-center justify-between gap-2"
                           >
-                            <div>
+                            <div className="min-w-0">
                               <div className="font-medium text-sm text-[#f5f2eb]">
                                 {slip.clientName}
                               </div>
                               <div className="text-xs text-[#8e8a7f] tabular-nums">
-                                ${slip.totalAmountUsdc.toFixed(2)} USDC
+                                ${slip.totalAmountUsdc.toFixed(2)} USDC ·{' '}
+                                <span className="font-mono text-[#6d695f]">
+                                  {slip.stealthImplicitAccount.slice(0, 10)}...
+                                </span>
                               </div>
                             </div>
 
                             {slip.claimedToStealthWallet ? (
                               <a
-                                href={slip.stealthClaimTxUrl || '#'}
+                                href={slip.stealthClaimTxUrl || slip.settlementTxUrl || '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#17261d] text-[#77b28c] text-xs font-medium"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#17261d] text-[#77b28c] text-xs font-medium shrink-0"
                               >
-                                Claimed
+                                Auto-Disbursed
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             ) : (
@@ -1047,11 +1208,11 @@ export default function NearVeilHomePage() {
                                 type="button"
                                 disabled={busyKey === `claim_${slip.invoiceId}`}
                                 onClick={() => handleQuickStealthClaim(slip)}
-                                className="px-3 py-1.5 rounded-lg bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg bg-[#f5f2eb] hover:bg-white text-[#0a0a09] text-xs font-semibold cursor-pointer shrink-0"
                               >
                                 {busyKey === `claim_${slip.invoiceId}`
-                                  ? 'Claiming...'
-                                  : 'Claim (0 Gas)'}
+                                  ? 'Sending...'
+                                  : 'Disburse (0 Gas)'}
                               </button>
                             )}
                           </div>
@@ -1065,7 +1226,7 @@ export default function NearVeilHomePage() {
           )}
 
           {/* TAB 3: BOOKKEEPER & CSV */}
-          {activeTab === 'accounting' && (
+          {viewRole === 'employer' && activeTab === 'accounting' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
@@ -1214,7 +1375,7 @@ export default function NearVeilHomePage() {
           )}
 
           {/* TAB 4: TESTNET & SECURITY */}
-          {activeTab === 'security' && (
+          {viewRole === 'employer' && activeTab === 'security' && (
             <div className="space-y-6">
               <div>
                 <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#d4b06a] mb-1">
@@ -1317,6 +1478,236 @@ export default function NearVeilHomePage() {
               </div>
             </div>
           )}
+
+          {/* EMPLOYEE PORTAL VIEW */}
+          {viewRole === 'employee' && (() => {
+            const activeEmployeeMeta =
+              (isConnected && stealthMetaAddress) || guestMetaAddress;
+            const matchingSlips = payrollRecords.filter(
+              (slip) =>
+                slip.stealthMetaAddress &&
+                activeEmployeeMeta &&
+                slip.stealthMetaAddress.toLowerCase() ===
+                  activeEmployeeMeta.toLowerCase()
+            );
+            const displayedSlips = showAllEmployeeSlips
+              ? payrollRecords
+              : matchingSlips;
+            const employeeTotalUsdc = displayedSlips.reduce(
+              (sum, s) => sum + s.totalAmountUsdc,
+              0
+            );
+
+            return (
+              <div className="space-y-7">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <div className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#77b28c] mb-1">
+                      Employee Portal · Zero-Claim Auto-Deposit
+                    </div>
+                    <h1 className="text-3xl sm:text-4xl font-serif tracking-tight text-[#f5f2eb]">
+                      My Private Paychecks
+                    </h1>
+                    <p className="text-sm text-[#8e8a7f] mt-1">
+                      Give your employer your Stealth Meta-Address once during setup. Salaries auto-disburse to fresh unlinked stealth addresses—no claim step needed.
+                    </p>
+                  </div>
+
+                  {!isConnected && (
+                    <button
+                      type="button"
+                      onClick={connect}
+                      className="px-4 py-2.5 rounded-xl bg-gradient-to-b from-[#e2c17d] to-[#c9a358] hover:from-[#ebd094] hover:to-[#d4b06a] text-[#0a0a09] font-semibold text-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      Connect NEAR Wallet
+                    </button>
+                  )}
+                </div>
+
+                {/* Employee Onboarding Stealth Meta-Address Card */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-8 vault-card rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-[#77b28c]" />
+                        <h2 className="font-medium text-base text-[#f5f2eb]">
+                          My Onboarding Stealth Meta-Address
+                        </h2>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#17261d] text-[#77b28c] text-[11px] font-mono">
+                        {isConnected && accountId ? accountId : 'Guest Preview'}
+                      </span>
+                    </div>
+
+                    {!isConnected && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-[#8e8a7f]">
+                          Or preview by Employee ID:
+                        </span>
+                        <input
+                          type="text"
+                          value={guestEmployeeId}
+                          onChange={(e) => setGuestEmployeeId(e.target.value)}
+                          placeholder="EMP-101"
+                          className="px-2.5 py-1 rounded-lg bg-[#0d0d0c] border border-[#2c2b26] text-xs font-mono text-[#f5f2eb] w-36"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-3.5 rounded-xl bg-[#0d0d0c] border border-[#272622] flex items-center justify-between gap-3">
+                      <code className="text-xs font-mono text-[#d4b06a] break-all">
+                        {activeEmployeeMeta || 'Generating stealth meta-address...'}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!activeEmployeeMeta) return;
+                          navigator.clipboard?.writeText(activeEmployeeMeta);
+                          setCopiedId('emp_meta');
+                          setTimeout(() => setCopiedId(null), 1800);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-[#1d1c18] hover:bg-[#272620] border border-[#d4b06a]/30 text-xs font-medium text-[#f5f2eb] flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      >
+                        {copiedId === 'emp_meta' ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-[#77b28c]" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-[#d4b06a]" />
+                            Copy for HR
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-[#8e8a7f]">
+                      Paste this address into the Employer&apos;s Private Payroll setup. Each payday generates a brand-new 64-char stealth account only your key controls.
+                    </p>
+                  </div>
+
+                  <div className="lg:col-span-4 vault-card rounded-2xl p-6 flex flex-col justify-between">
+                    <div>
+                      <div className="text-xs text-[#8e8a7f]">
+                        Total Auto-Received
+                      </div>
+                      <div className="text-3xl font-serif text-[#f5f2eb] tabular-nums mt-1">
+                        $
+                        {employeeTotalUsdc.toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                        })}
+                        <span className="text-sm font-sans text-[#8e8a7f] ml-1.5">
+                          USDC
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pt-4 border-t border-[#24231f] flex items-center justify-between text-xs">
+                      <span className="text-[#8e8a7f]">Payout Mode</span>
+                      <span className="text-[#77b28c] font-mono">
+                        Direct Stealth Auto-Pay
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Auto-Disbursed Paychecks Table */}
+                <div className="vault-card rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-[#24231f] flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="font-medium text-sm text-[#f5f2eb]">
+                      Paychecks ({displayedSlips.length})
+                    </h2>
+                    <div className="p-1 rounded-lg bg-[#0d0d0c] border border-[#24231f] flex items-center gap-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllEmployeeSlips(false)}
+                        className={`px-2.5 py-1 rounded-md cursor-pointer transition ${
+                          !showAllEmployeeSlips
+                            ? 'bg-[#1d1c18] text-[#77b28c] font-medium'
+                            : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
+                        }`}
+                      >
+                        My Meta Only ({matchingSlips.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAllEmployeeSlips(true)}
+                        className={`px-2.5 py-1 rounded-md cursor-pointer transition ${
+                          showAllEmployeeSlips
+                            ? 'bg-[#1d1c18] text-[#d4b06a] font-medium'
+                            : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
+                        }`}
+                      >
+                        All Testnet Paychecks ({payrollRecords.length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {displayedSlips.length === 0 ? (
+                    <div className="p-10 text-center text-sm text-[#8e8a7f]">
+                      No paychecks matched your Stealth Meta-Address yet. Copy your Meta-Address above and run a batch in Employer View, or switch to &ldquo;All Testnet Paychecks&rdquo;.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-[#201f1b]">
+                      {displayedSlips.map((slip) => (
+                        <div
+                          key={slip.invoiceId}
+                          className="px-6 py-4 flex flex-wrap items-center justify-between gap-4 hover:bg-[#191815] transition"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-medium text-sm text-[#f5f2eb]">
+                                {slip.clientName}
+                              </span>
+                              <span className="text-xs font-mono text-[#6d695f]">
+                                {slip.invoiceId}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#17261d] text-[#77b28c] text-[11px] font-medium">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Auto-Disbursed
+                              </span>
+                            </div>
+                            <div className="text-xs text-[#8e8a7f] flex flex-wrap items-center gap-2">
+                              <span>{slip.lineItems[0]?.description}</span>
+                              <span>·</span>
+                              <span className="font-mono text-[#6d695f]">
+                                Stealth: {slip.stealthImplicitAccount.slice(0, 14)}...
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <div className="font-serif text-xl text-[#f5f2eb] tabular-nums">
+                                ${slip.totalAmountUsdc.toFixed(2)}
+                              </div>
+                              <div className="text-[11px] text-[#77b28c]">
+                                $0.00 Gas · Ready
+                              </div>
+                            </div>
+                            <a
+                              href={
+                                slip.stealthClaimTxUrl ||
+                                slip.settlementTxUrl ||
+                                '#'
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg bg-[#181815] hover:bg-[#23221d] border border-[#2c2b26] text-xs text-[#d4b06a] inline-flex items-center gap-1.5"
+                            >
+                              Explorer
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

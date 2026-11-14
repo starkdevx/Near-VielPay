@@ -5,6 +5,7 @@ import {
   JetBrains_Mono,
 } from 'next/font/google';
 import './globals.css';
+import { WalletProvider } from '@/components/WalletProvider';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -43,7 +44,7 @@ export default function RootLayout({
       className={`dark ${plusJakarta.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-screen bg-[#0a0a09] text-[#f5f2eb] font-sans antialiased selection:bg-[#d4b06a]/30 selection:text-[#f5f2eb]">
-        {children}
+        <WalletProvider>{children}</WalletProvider>
       </body>
     </html>
   );

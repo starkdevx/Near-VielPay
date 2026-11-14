@@ -11,6 +11,11 @@
     "test:e2e": "node scripts/verify-e2e-testnet.mjs"
   },
   "dependencies": {
+    "@near-wallet-selector/core": "^10.1.4",
+    "@near-wallet-selector/here-wallet": "^10.1.4",
+    "@near-wallet-selector/meteor-wallet": "^10.1.4",
+    "@near-wallet-selector/modal-ui": "^10.1.4",
+    "@near-wallet-selector/my-near-wallet": "^10.1.4",
     "lucide-react": "^0.460.0",
     "near-api-js": "^5.0.1",
     "next": "^15.1.0",
@@ -27,4 +32,3 @@
     "typescript": "^5.7.2"
   }
 }
-

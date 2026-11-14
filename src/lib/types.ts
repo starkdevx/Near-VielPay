@@ -23,9 +23,11 @@ export interface NearVeilInvoice {
   taxAmountUsd: number;
   totalAmountUsdc: number;
   status: RecordStatus;
-  // Umbra-style Stealth & Privacy fields
+  // Stealth & Privacy fields
   privacyEnabled: boolean;
   stealthImplicitAccount: string; // 64-char hex NEAR Implicit Account
+  stealthMetaAddress?: string; // Optional employee/recipient stealth meta-address (nv_meta_...)
+  autoDisbursed?: boolean; // True when payroll auto-disburses to stealth address with zero claim step
   ephemeralPubKeyHex: string;
   viewTag: string; // 2-hex-char (1 byte) fast filter tag
   stealthCommitmentHash: string; // sha256(claimSecret + invoiceId)
@@ -56,11 +58,13 @@ export interface PayrollRecipientInput {
   roleOrDepartment: string;
   referenceCode: string;
   amountUsdc: number;
+  stealthMetaAddress?: string;
 }
 
 export interface PrivatePayrollBatch {
   batchId: string;
   companyName: string;
+  employerAccountId?: string;
   payPeriodLabel: string;
   createdAtUtc: string;
   fundingOriginChain: string;

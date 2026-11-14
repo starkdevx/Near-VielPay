@@ -68,22 +68,42 @@ export function decryptViewingNote(ciphertext: string, viewingKey: string): View
 }
 
 /**
+ * Derives a deterministic Stealth Meta-Address (`nv_meta_<64-hex>`) from an account ID or seed.
+ */
+export function deriveStealthMetaAddress(accountIdOrSeed: string): string {
+  const digest = crypto
+    .createHash('sha256')
+    .update(`nearveil_meta_v1:${accountIdOrSeed.trim().toLowerCase()}`)
+    .digest('hex');
+  return `nv_meta_${digest}`;
+}
+
+/**
  * Generates an Umbra-style one-time NEAR Stealth Implicit Account (64-char hex ed25519 pubkey),
  * ephemeral public key, 1-byte view tag, SHA-256 commitment hash, and AES-GCM encrypted note.
+ * When `recipientMetaAddress` is provided, the stealth address is deterministically bound to
+ * that employee's meta-address + ephemeral key so they can auto-receive without a manual claim.
  */
 export function generateStealthBundle(
   recordId: string,
   notePayload: Omit<ViewingNotePayload, 'stealthImplicitAccount'>,
-  viewingKey: string
+  viewingKey: string,
+  recipientMetaAddress?: string
 ): StealthBundle {
-  // 1. Generate a fresh one-time ed25519 keypair for the NEAR Stealth Implicit Account
-  const stealthKeyPair = KeyPair.fromRandom('ed25519');
-  const stealthPubKeyBytes = stealthKeyPair.getPublicKey().data;
-  const stealthImplicitAccount = Buffer.from(stealthPubKeyBytes).toString('hex');
-
-  // 2. Generate ephemeral keypair R for the Umbra stealth announcement
+  // 1. Generate ephemeral keypair R for the stealth announcement
   const ephemeralKeyPair = KeyPair.fromRandom('ed25519');
   const ephemeralPubKeyHex = Buffer.from(ephemeralKeyPair.getPublicKey().data).toString('hex');
+
+  // 2. Derive one-time NEAR Stealth Implicit Account (64-char hex ed25519 pubkey)
+  const stealthKeyPair = KeyPair.fromRandom('ed25519');
+  const stealthPubKeyBytes = stealthKeyPair.getPublicKey().data;
+  const cleanMeta = (recipientMetaAddress || '').trim();
+  const stealthImplicitAccount = cleanMeta
+    ? crypto
+        .createHash('sha256')
+        .update(`nearveil_stealth_v1:${cleanMeta}:${ephemeralPubKeyHex}`)
+        .digest('hex')
+    : Buffer.from(stealthPubKeyBytes).toString('hex');
 
   // 3. Generate one-time claim secret & SHA-256 commitment hash
   const claimSecret = `nv_secret_${crypto.randomBytes(16).toString('hex')}`;
@@ -95,7 +115,7 @@ export function generateStealthBundle(
   // 4. Compute 1-byte View Tag for fast client-side scanning of announcements
   const viewTag = crypto
     .createHash('sha256')
-    .update(`${ephemeralPubKeyHex}:${viewingKey}`)
+    .update(`${ephemeralPubKeyHex}:${cleanMeta || viewingKey}`)
     .digest('hex')
     .slice(0, 2);
 

@@ -28,9 +28,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'NearVeil — Private Treasury, Invoicing & Payroll on NEAR',
+  title: 'NearPay Veil — Private Treasury, Invoicing & Merchant Pay on NEAR',
   description:
-    'Send invoices, settle from any chain in USDC with zero gas fees, and run private payroll on NEAR Testnet.',
+    'Send gasless invoices, accept instant merchant payments in Circle USDC or NEAR, and run confidential stealth payroll on NEAR.',
 };
 
 export default function RootLayout({

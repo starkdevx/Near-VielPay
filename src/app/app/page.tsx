@@ -712,17 +712,17 @@ export default function NearVeilHomePage() {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Sidebar */}
-      <aside className="lg:w-60 bg-[#11110f]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
+      <aside className="lg:w-64 bg-[#10100e]/95 backdrop-blur-md border-b lg:border-b-0 lg:border-r border-[#272622] flex flex-col justify-between shrink-0">
         <div className="p-4 lg:p-5">
-          <div className="mb-6 lg:mb-7">
+          <Link href="/" className="block mb-6 lg:mb-8 hover:opacity-90 transition">
             <NearVeilLogo />
-          </div>
+          </Link>
 
-          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2 px-3 hidden lg:block">
+          <div className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#6d695f] mb-2.5 px-3 hidden lg:block">
             Workspace
           </div>
 
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:pb-0">
+          <nav className="flex lg:flex-col gap-1.5 overflow-x-auto pb-1 lg:pb-0">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -731,15 +731,15 @@ export default function NearVeilHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                  className={`relative flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? 'bg-[#1d1c18] text-[#f5f2eb] font-medium border border-[#d4b06a]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                      ? 'bg-gradient-to-r from-[#211f18] to-[#171612] text-[#f5f2eb] font-medium border border-[#d4b06a]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_12px_-4px_rgba(0,0,0,0.5)]'
                       : 'text-[#8e8a7f] hover:bg-[#171714] hover:text-[#f5f2eb] border border-transparent'
                   }`}
                 >
                   <Icon
-                    className={`w-4 h-4 ${
-                      isActive ? 'text-[#d4b06a]' : 'text-[#6d695f]'
+                    className={`w-4 h-4 transition-colors ${
+                      isActive ? 'text-[#e5be70]' : 'text-[#6d695f]'
                     }`}
                   />
                   {item.label}
@@ -749,9 +749,14 @@ export default function NearVeilHomePage() {
           </nav>
         </div>
 
-        <div className="p-4 text-[11px] text-[#6d695f] font-mono hidden lg:flex items-center gap-2 border-t border-[#22211c]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#34d399]" />
-          <span>NearVeil · NEAR Testnet</span>
+        <div className="p-4 text-[11px] text-[#6d695f] font-mono hidden lg:flex items-center justify-between border-t border-[#22211c]">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#34d399]" />
+            <span>NearPay Veil</span>
+          </div>
+          <Link href="/" className="text-[#8e8a7f] hover:text-[#d4b06a] transition text-[10px]">
+            Overview ↗
+          </Link>
         </div>
       </aside>
 
@@ -791,7 +796,7 @@ export default function NearVeilHomePage() {
                 </div>
               ) : (
                 <div className="text-xs font-mono text-[#8e8a7f] tracking-wide flex items-center gap-2">
-                  <span className="text-[#d4b06a] font-semibold uppercase">NearVeil</span>
+                  <span className="text-[#e5be70] font-semibold uppercase">NearPay Veil</span>
                   <span className="text-[#423f37]">/</span>
                   <span className="capitalize text-[#f5f2eb]">
                     {activeTab === 'merchant'

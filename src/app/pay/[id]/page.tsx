@@ -167,7 +167,7 @@ export default function MerchantCheckoutPage({
           href="/app"
           className="px-4 py-2 rounded-xl bg-[#1c1a15] border border-[#d4b06a]/40 text-xs font-semibold text-[#f5ecd5] hover:bg-[#24211a] transition"
         >
-          Back to NearVeil App
+          Back to NearPay Veil
         </Link>
       </div>
     );

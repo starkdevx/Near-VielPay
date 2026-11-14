@@ -263,7 +263,7 @@ export default function InvoiceCheckoutPage() {
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#d4b06a] text-[#0a0a09] font-semibold text-sm hover:bg-[#e2c17d]"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to NearVeil App
+          Back to NearPay Veil
         </Link>
       </div>
     );

@@ -115,22 +115,27 @@ export default function LandingPage() {
       {/* Top Sticky Navbar */}
       <header className="sticky top-0 z-40 border-b border-[#272621] bg-[#0a0a09]/85 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center hover:opacity-95 transition">
             <NearVeilLogo />
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#141411] border border-[#2d2c25] text-[10px] font-mono text-[#a39f93]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#34d399] animate-pulse" />
-              NEAR Testnet
-            </span>
-          </div>
+          </Link>
 
-          <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-[#9c978b]">
-            <a href="#features" className="hover:text-[#f5ecd5] transition">
+          <nav className="hidden md:flex items-center gap-2 text-xs font-medium text-[#9c978b] bg-[#12120f]/80 border border-[#25241e] rounded-full px-2 py-1">
+            <a
+              href="#features"
+              className="px-3 py-1 rounded-full hover:bg-[#1c1b16] hover:text-[#f5ecd5] transition"
+            >
               Features
             </a>
-            <a href="#how-it-works" className="hover:text-[#f5ecd5] transition">
+            <a
+              href="#how-it-works"
+              className="px-3 py-1 rounded-full hover:bg-[#1c1b16] hover:text-[#f5ecd5] transition"
+            >
               How It Works
             </a>
-            <a href="#architecture" className="hover:text-[#f5ecd5] transition">
+            <a
+              href="#architecture"
+              className="px-3 py-1 rounded-full hover:bg-[#1c1b16] hover:text-[#f5ecd5] transition"
+            >
               Architecture
             </a>
           </nav>
@@ -280,7 +285,7 @@ export default function LandingPage() {
                       </div>
                       <div>
                         <div className="text-xs font-mono uppercase tracking-wider text-[#e5be70]">
-                          NearVeil Vault &amp; Relayer
+                          NearPay Veil Vault &amp; Relayer
                         </div>
                         <div className="text-xs text-[#b5b0a4] mt-0.5">
                           {activeFlow.vaultSub}

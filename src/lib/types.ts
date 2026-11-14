@@ -102,3 +102,30 @@ export interface OneClickQuoteResponse {
   solverMode: 'NEAR_TESTNET_SOLVER';
 }
 
+export interface MerchantReceipt {
+  receiptId: string;
+  payerAccountId: string;
+  customerNote?: string;
+  amountUsdc: number;
+  originAsset: string;
+  originChain: string;
+  settlementTxHash: string;
+  settlementTxUrl: string;
+  paidAtUtc: string;
+}
+
+export interface MerchantPaymentLink {
+  paymentId: string;
+  merchantAccountId: string;
+  businessName: string;
+  title: string;
+  description?: string;
+  amountUsdc: number;
+  linkType: 'REUSABLE' | 'ONE_TIME';
+  status: 'ACTIVE' | 'PAID' | 'ARCHIVED';
+  salesCount: number;
+  totalCollectedUsdc: number;
+  createdAtUtc: string;
+  payments: MerchantReceipt[];
+}
+

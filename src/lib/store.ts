@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { NearVeilInvoice, PrivatePayrollBatch } from './types';
+import { MerchantPaymentLink, NearVeilInvoice, PrivatePayrollBatch } from './types';
 
 export interface LedgerData {
   invoices: NearVeilInvoice[];
   payrollBatches: PrivatePayrollBatch[];
+  merchantLinks: MerchantPaymentLink[];
   stealthClaimedBalanceUsdc: number;
 }
 
@@ -22,6 +23,7 @@ function createInitialSeedData(): LedgerData {
   return {
     invoices: [],
     payrollBatches: [],
+    merchantLinks: [],
     stealthClaimedBalanceUsdc: 0,
   };
 }
@@ -34,8 +36,13 @@ export function readLedger(): LedgerData {
     return initial;
   }
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as LedgerData;
-    return parsed;
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Partial<LedgerData>;
+    return {
+      invoices: parsed.invoices || [],
+      payrollBatches: parsed.payrollBatches || [],
+      merchantLinks: parsed.merchantLinks || [],
+      stealthClaimedBalanceUsdc: parsed.stealthClaimedBalanceUsdc ?? 0,
+    };
   } catch {
     const initial = createInitialSeedData();
     fs.writeFileSync(filePath, JSON.stringify(initial, null, 2), { mode: 0o600 });

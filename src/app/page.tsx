@@ -30,11 +30,17 @@ import {
   Building2,
   UserCheck,
   User,
+  Store,
+  Repeat,
+  Receipt,
+  PauseCircle,
+  PlayCircle,
 } from 'lucide-react';
 import { NearVeilLogo, ChainDot } from '@/components/BrandMark';
 import { useNearWallet } from '@/components/WalletProvider';
 import {
   InvoiceLineItem,
+  MerchantPaymentLink,
   NearVeilInvoice,
   OneClickTokenOption,
   PayrollRecipientInput,
@@ -67,7 +73,7 @@ export default function NearVeilHomePage() {
 
   const [viewRole, setViewRole] = useState<'employer' | 'employee'>('employer');
   const [activeTab, setActiveTab] = useState<
-    'invoices' | 'payroll' | 'accounting'
+    'invoices' | 'payroll' | 'merchant' | 'accounting'
   >('invoices');
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
@@ -154,6 +160,14 @@ export default function NearVeilHomePage() {
     },
   ]);
 
+  // Merchant Payments State
+  const [merchantLinks, setMerchantLinks] = useState<MerchantPaymentLink[]>([]);
+  const [merchantBusinessName, setMerchantBusinessName] = useState<string>('');
+  const [merchantTitle, setMerchantTitle] = useState<string>('');
+  const [merchantDescription, setMerchantDescription] = useState<string>('');
+  const [merchantAmountUsdc, setMerchantAmountUsdc] = useState<string>('25');
+  const [merchantLinkType, setMerchantLinkType] = useState<'REUSABLE' | 'ONE_TIME'>('REUSABLE');
+
   // Bookkeeper Viewing Key State
   const [viewingKeyInput, setViewingKeyInput] = useState<string>('');
   const [bookkeeperDecryptedMode, setBookkeeperDecryptedMode] =
@@ -232,6 +246,26 @@ export default function NearVeilHomePage() {
     }
   }, [accountId]);
 
+  const fetchMerchantLinks = useCallback(async (targetAccount?: string) => {
+    const acc = targetAccount || accountId;
+    if (!acc) {
+      setMerchantLinks([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/merchant?accountId=${encodeURIComponent(acc)}`,
+        { cache: 'no-store' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setMerchantLinks(data.merchantLinks || []);
+      }
+    } catch {
+      // ignore
+    }
+  }, [accountId]);
+
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
@@ -239,11 +273,13 @@ export default function NearVeilHomePage() {
   useEffect(() => {
     if (accountId) {
       refreshWalletBalance(accountId);
+      fetchMerchantLinks(accountId);
     } else {
       setWalletNearBalance(0);
       setWalletUsdcBalance(0);
+      setMerchantLinks([]);
     }
-  }, [accountId, refreshWalletBalance]);
+  }, [accountId, refreshWalletBalance, fetchMerchantLinks]);
 
   // Periodic auto-sync to keep live balances fresh
   useEffect(() => {
@@ -534,9 +570,77 @@ export default function NearVeilHomePage() {
     }
   };
 
+  const handleCreateMerchantLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isConnected || !accountId) {
+      connect();
+      return;
+    }
+    setBusyKey('create_merchant');
+    setToast(null);
+    try {
+      const res = await fetch('/api/merchant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_link',
+          merchantAccountId: accountId,
+          businessName: merchantBusinessName.trim() || accountId,
+          title: merchantTitle,
+          description: merchantDescription,
+          amountUsdc: Number(merchantAmountUsdc),
+          linkType: merchantLinkType,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create checkout link');
+      await fetchMerchantLinks();
+      setMerchantTitle('');
+      setMerchantDescription('');
+      setToast({
+        type: 'success',
+        message: `Checkout link ${data.link.paymentId} created! Share /pay/${data.link.paymentId} with customers.`,
+      });
+    } catch (err) {
+      setToast({
+        type: 'error',
+        message: (err as Error).message,
+      });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleToggleMerchantLinkStatus = async (paymentId: string) => {
+    if (!accountId) return;
+    setBusyKey(`toggle_${paymentId}`);
+    try {
+      const res = await fetch('/api/merchant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_status',
+          paymentId,
+          merchantAccountId: accountId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update link status');
+      await fetchMerchantLinks();
+    } catch (err) {
+      setToast({
+        type: 'error',
+        message: (err as Error).message,
+      });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const navItems = [
     { id: 'invoices' as const, label: 'Invoices', icon: FileText },
     { id: 'payroll' as const, label: 'Private Payroll', icon: Users },
+    { id: 'merchant' as const, label: 'Merchant Pay', icon: Store },
     { id: 'accounting' as const, label: 'Bookkeeper & CSV', icon: FileSpreadsheet },
   ];
 
@@ -1703,6 +1807,427 @@ export default function NearVeilHomePage() {
               </div>
             </div>
           )}
+
+          {/* TAB: MERCHANT CHECKOUT & POS */}
+          {viewRole === 'employer' && activeTab === 'merchant' && (() => {
+            const normalizedAcc = accountId?.toLowerCase() || '';
+            const myStoreLinks = merchantLinks.filter(
+              (l) => l.merchantAccountId.toLowerCase() === normalizedAcc
+            );
+            const totalMerchantRevenue = myStoreLinks.reduce(
+              (sum, l) => sum + l.totalCollectedUsdc,
+              0
+            );
+            const activeStoreLinksCount = myStoreLinks.filter(
+              (l) => l.status === 'ACTIVE'
+            ).length;
+            const totalSalesCount = myStoreLinks.reduce(
+              (sum, l) => sum + l.salesCount,
+              0
+            );
+            const recentPayments = merchantLinks
+              .flatMap((l) =>
+                l.payments.map((p) => ({
+                  ...p,
+                  linkTitle: l.title,
+                  paymentId: l.paymentId,
+                  merchantAccountId: l.merchantAccountId,
+                }))
+              )
+              .sort(
+                (a, b) =>
+                  new Date(b.paidAtUtc).getTime() - new Date(a.paidAtUtc).getTime()
+              );
+
+            return (
+              <div className="space-y-7">
+                {/* Header */}
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <div>
+                    <div className="badge-gold-glow px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-[0.16em] inline-flex items-center gap-1.5 mb-2">
+                      <Store className="w-3.5 h-3.5 text-[#e5be70]" />
+                      Merchant Checkout & POS
+                    </div>
+                    <h1 className="text-3xl sm:text-5xl font-serif tracking-tight text-gradient-gold">
+                      Merchant Payments
+                    </h1>
+                    <p className="text-sm text-[#9c978b] mt-1.5 max-w-xl">
+                      Create instant USDC checkout links for products, services, or in-person orders. Customers pay with one click—no invoicing overhead.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="vault-card-glow-gold rounded-2xl p-5 space-y-1.5 relative overflow-hidden">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                      Total Sales Revenue
+                    </div>
+                    <div className="text-3xl font-serif text-gradient-gold tabular-nums">
+                      ${totalMerchantRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className="text-xs font-sans text-[#8e8a7f] ml-1.5">USDC</span>
+                    </div>
+                  </div>
+                  <div className="vault-card rounded-2xl p-5 space-y-1.5">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                      Active Checkout Links
+                    </div>
+                    <div className="text-3xl font-serif text-[#f5f2eb] tabular-nums">
+                      {activeStoreLinksCount}
+                    </div>
+                  </div>
+                  <div className="vault-card rounded-2xl p-5 space-y-1.5">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                      Completed Checkouts
+                    </div>
+                    <div className="text-3xl font-serif text-[#34d399] tabular-nums">
+                      {totalSalesCount}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Grid: Link Builder + Active Checkout Links */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left: Quick Checkout Link Builder */}
+                  <div className="lg:col-span-5 vault-card-glow-gold rounded-2xl p-6 space-y-4 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/60 to-transparent" />
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-[#f5ecd5] flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-[#d4b06a]" />
+                        New Checkout Link
+                      </h2>
+                      <span className="text-[10px] font-mono text-[#8e8a7f]">0% Platform Fee</span>
+                    </div>
+
+                    {!isConnected ? (
+                      <div className="py-6 text-center space-y-3">
+                        <p className="text-xs text-[#8e8a7f]">
+                          Connect your NEAR wallet to create storefront links and receive USDC directly.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={connect}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#f5dfa8] via-[#d4b06a] to-[#a87d2a] text-[#0a0a09] text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          Connect NEAR Wallet
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleCreateMerchantLink} className="space-y-3.5">
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1">
+                            Store / Business Name
+                          </label>
+                          <input
+                            type="text"
+                            value={merchantBusinessName}
+                            onChange={(e) => setMerchantBusinessName(e.target.value)}
+                            placeholder={accountId || 'e.g. Acme Studio'}
+                            className="w-full px-3.5 py-2 rounded-xl bg-[#12120f] border border-[#2c2a22] focus:border-[#d4b06a]/60 outline-none text-sm text-[#f5f2eb] placeholder-[#5e5b52]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1">
+                            Item or Service Title
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={merchantTitle}
+                            onChange={(e) => setMerchantTitle(e.target.value)}
+                            placeholder="e.g. Pro Plan Subscription or Coffee Order"
+                            className="w-full px-3.5 py-2 rounded-xl bg-[#12120f] border border-[#2c2a22] focus:border-[#d4b06a]/60 outline-none text-sm text-[#f5f2eb] placeholder-[#5e5b52]"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f]">
+                              Price (USDC)
+                            </label>
+                            <div className="flex items-center gap-1">
+                              {['5', '15', '50', '100'].map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setMerchantAmountUsdc(preset)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-mono border transition cursor-pointer ${
+                                    merchantAmountUsdc === preset
+                                      ? 'bg-[#221f17] border-[#d4b06a]/60 text-[#f5dfa8]'
+                                      : 'bg-[#141411] border-[#292720] text-[#8e8a7f] hover:text-[#f5f2eb]'
+                                  }`}
+                                >
+                                  ${preset}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            required
+                            value={merchantAmountUsdc}
+                            onChange={(e) => setMerchantAmountUsdc(e.target.value)}
+                            className="w-full px-3.5 py-2 rounded-xl bg-[#12120f] border border-[#2c2a22] focus:border-[#d4b06a]/60 outline-none text-sm font-mono text-[#f5f2eb]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1">
+                            Description (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={merchantDescription}
+                            onChange={(e) => setMerchantDescription(e.target.value)}
+                            placeholder="Short note shown to customer at checkout"
+                            className="w-full px-3.5 py-2 rounded-xl bg-[#12120f] border border-[#2c2a22] focus:border-[#d4b06a]/60 outline-none text-sm text-[#f5f2eb] placeholder-[#5e5b52]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-mono uppercase tracking-wider text-[#8e8a7f] mb-1.5">
+                            Checkout Mode
+                          </label>
+                          <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#13120f] border border-[#2a2820]">
+                            <button
+                              type="button"
+                              onClick={() => setMerchantLinkType('REUSABLE')}
+                              className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                                merchantLinkType === 'REUSABLE'
+                                  ? 'bg-[#221f17] text-[#f5ecd5] border border-[#d4b06a]/50'
+                                  : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
+                              }`}
+                            >
+                              <Repeat className="w-3.5 h-3.5 text-[#d4b06a]" />
+                              Reusable Link
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMerchantLinkType('ONE_TIME')}
+                              className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                                merchantLinkType === 'ONE_TIME'
+                                  ? 'bg-[#14221a] text-[#e4f7eb] border border-[#34d399]/50'
+                                  : 'text-[#8e8a7f] hover:text-[#f5f2eb]'
+                              }`}
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-[#34d399]" />
+                              Single Order
+                            </button>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={busyKey === 'create_merchant'}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-sm shadow-[0_0_20px_rgba(212,176,106,0.3)] transition cursor-pointer"
+                        >
+                          {busyKey === 'create_merchant'
+                            ? 'Creating Link...'
+                            : 'Create Checkout Link'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Right: Active Checkout Links */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-[#f5ecd5]">
+                        Your Checkout Links
+                      </h2>
+                      <span className="text-xs font-mono text-[#8e8a7f]">
+                        {myStoreLinks.length} {myStoreLinks.length === 1 ? 'link' : 'links'}
+                      </span>
+                    </div>
+
+                    {!isConnected ? (
+                      <div className="vault-card rounded-2xl p-8 text-center text-xs text-[#8e8a7f]">
+                        Connect your wallet to view and manage your merchant checkout links.
+                      </div>
+                    ) : myStoreLinks.length === 0 ? (
+                      <div className="vault-card rounded-2xl p-8 text-center space-y-2">
+                        <Store className="w-8 h-8 text-[#6d695f] mx-auto" />
+                        <div className="text-sm font-medium text-[#f5f2eb]">
+                          No checkout links yet
+                        </div>
+                        <p className="text-xs text-[#8e8a7f] max-w-sm mx-auto">
+                          Create your first product or POS payment link on the left to start accepting USDC from customers.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {myStoreLinks.map((link) => {
+                          const checkoutPath = `/pay/${link.paymentId}`;
+                          const fullUrl =
+                            typeof window !== 'undefined'
+                              ? `${window.location.origin}${checkoutPath}`
+                              : checkoutPath;
+                          return (
+                            <div
+                              key={link.paymentId}
+                              className="vault-card rounded-2xl p-4 sm:p-5 space-y-3 hover:border-[#d4b06a]/35 transition"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-semibold text-[#f5f2eb]">
+                                      {link.title}
+                                    </span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                                        link.status === 'ACTIVE'
+                                          ? 'bg-[#122419] border-[#2d573d] text-[#34d399]'
+                                          : link.status === 'PAID'
+                                            ? 'bg-[#1f1b12] border-[#5b4b28] text-[#e5be70]'
+                                            : 'bg-[#211515] border-[#4b2725] text-[#f0a5a0]'
+                                      }`}
+                                    >
+                                      {link.status}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#181713] border border-[#2d2b24] text-[#9c978b]">
+                                      {link.linkType === 'REUSABLE' ? 'Reusable' : 'Single Order'}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-[#8e8a7f] mt-1 font-mono">
+                                    {link.paymentId} · {link.salesCount} {link.salesCount === 1 ? 'sale' : 'sales'} · ${link.totalCollectedUsdc.toFixed(2)} collected
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <div className="text-xl font-serif text-gradient-gold tabular-nums font-semibold">
+                                    ${link.amountUsdc.toFixed(2)}
+                                    <span className="text-[11px] font-sans text-[#8e8a7f] ml-1">USDC</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-[#25231d] flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(fullUrl);
+                                      setCopiedId(link.paymentId);
+                                      setTimeout(() => setCopiedId(null), 1800);
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-[#191813] hover:bg-[#23211a] border border-[#322f26] text-xs font-medium text-[#f5ecd5] inline-flex items-center gap-1.5 transition cursor-pointer"
+                                  >
+                                    {copiedId === link.paymentId ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5 text-[#34d399]" />
+                                        Copied
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3.5 h-3.5 text-[#d4b06a]" />
+                                        Copy Link
+                                      </>
+                                    )}
+                                  </button>
+
+                                  <Link
+                                    href={checkoutPath}
+                                    target="_blank"
+                                    className="px-3 py-1.5 rounded-lg bg-[#14221a] hover:bg-[#1a2c22] border border-[#2f5b40] text-xs font-medium text-[#d1fae5] inline-flex items-center gap-1.5 transition"
+                                  >
+                                    Open Checkout
+                                    <ArrowUpRight className="w-3.5 h-3.5" />
+                                  </Link>
+                                </div>
+
+                                {link.status !== 'PAID' && (
+                                  <button
+                                    type="button"
+                                    disabled={busyKey === `toggle_${link.paymentId}`}
+                                    onClick={() => handleToggleMerchantLinkStatus(link.paymentId)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs text-[#8e8a7f] hover:text-[#f5f2eb] hover:bg-[#1a1915] inline-flex items-center gap-1 transition cursor-pointer"
+                                  >
+                                    {link.status === 'ACTIVE' ? (
+                                      <>
+                                        <PauseCircle className="w-3.5 h-3.5" />
+                                        Pause
+                                      </>
+                                    ) : (
+                                      <>
+                                        <PlayCircle className="w-3.5 h-3.5 text-[#34d399]" />
+                                        Resume
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Customer Payments Feed */}
+                {isConnected && recentPayments.length > 0 && (
+                  <div className="vault-card rounded-2xl overflow-hidden">
+                    <div className="px-5 py-4 border-b border-[#25231d] flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-[#f5ecd5] flex items-center gap-2">
+                        <Receipt className="w-4 h-4 text-[#d4b06a]" />
+                        Recent Customer Payments
+                      </h3>
+                      <span className="text-xs font-mono text-[#8e8a7f]">
+                        {recentPayments.length} {recentPayments.length === 1 ? 'receipt' : 'receipts'}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[#24221c] text-[#8e8a7f] font-mono uppercase text-[10px]">
+                            <th className="px-5 py-3">Item</th>
+                            <th className="px-5 py-3">Customer</th>
+                            <th className="px-5 py-3">Order Note</th>
+                            <th className="px-5 py-3">Amount</th>
+                            <th className="px-5 py-3 text-right">Receipt</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#1f1e19]">
+                          {recentPayments.map((p) => (
+                            <tr key={p.receiptId} className="hover:bg-[#151410]">
+                              <td className="px-5 py-3.5">
+                                <div className="font-medium text-[#f5f2eb]">{p.linkTitle}</div>
+                                <div className="text-[10px] font-mono text-[#6d695f]">{p.receiptId}</div>
+                              </td>
+                              <td className="px-5 py-3.5 font-mono text-[#c5c0b4]">
+                                {p.payerAccountId}
+                              </td>
+                              <td className="px-5 py-3.5 text-[#9c978b]">
+                                {p.customerNote || '—'}
+                              </td>
+                              <td className="px-5 py-3.5 font-mono text-[#f5dfa8] font-semibold">
+                                ${p.amountUsdc.toFixed(2)} USDC
+                              </td>
+                              <td className="px-5 py-3.5 text-right">
+                                <a
+                                  href={p.settlementTxUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[#e2c17d] hover:underline font-mono"
+                                >
+                                  NearBlocks
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* EMPLOYEE PORTAL VIEW */}
           {viewRole === 'employee' && (() => {

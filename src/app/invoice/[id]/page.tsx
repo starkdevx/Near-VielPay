@@ -649,7 +649,7 @@ export default function InvoiceCheckoutPage() {
                 <p className="text-xs text-[#9c978b] mt-1">
                   {invoice.status === 'PAID'
                     ? 'This invoice has been settled on NEAR Testnet.'
-                    : 'Pay directly from your connected wallet or across chains via 1Click.'}
+                    : 'Pay directly from your connected NEAR wallet in Circle USDC or NEAR.'}
                 </p>
               </div>
 

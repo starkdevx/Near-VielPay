@@ -128,7 +128,8 @@ export default function NearVeilHomePage() {
   ]);
 
   // Private Batch Payroll Form State
-  const [companyName, setCompanyName] = useState<string>('NearVeil Labs');
+  const [payrollStep, setPayrollStep] = useState<1 | 2 | 3>(1);
+  const [companyName, setCompanyName] = useState<string>('NearPay Veil Labs');
   const [payPeriodLabel, setPayPeriodLabel] = useState<string>(
     'Nov 2026 · Bi-Weekly'
   );
@@ -188,10 +189,41 @@ export default function NearVeilHomePage() {
       if (savedBatches) {
         setMyPayrollBatchIds(JSON.parse(savedBatches));
       }
+      const savedCompany = localStorage.getItem('nearveil_company_name');
+      if (savedCompany) {
+        setCompanyName(savedCompany);
+      }
+      const savedMembers = localStorage.getItem('nearveil_company_members');
+      if (savedMembers) {
+        const parsed = JSON.parse(savedMembers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPayrollRecipients(parsed);
+        }
+      }
     } catch {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      if (companyName.trim()) {
+        localStorage.setItem('nearveil_company_name', companyName);
+      }
+    } catch {
+      // ignore
+    }
+  }, [companyName]);
+
+  useEffect(() => {
+    try {
+      if (payrollRecipients.length > 0) {
+        localStorage.setItem('nearveil_company_members', JSON.stringify(payrollRecipients));
+      }
+    } catch {
+      // ignore
+    }
+  }, [payrollRecipients]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -923,7 +955,7 @@ export default function NearVeilHomePage() {
                     Client Invoices
                   </h1>
                   <p className="text-sm text-[#9c978b] mt-1.5 max-w-xl">
-                    Clients pay from any chain; you receive exact USDC on NEAR with zero gas fees.
+                    Clients pay directly in Native USDC/NEAR; invoices are created with zero gas fees.
                   </p>
                 </div>
 
@@ -1021,7 +1053,7 @@ export default function NearVeilHomePage() {
                   <span className="h-6 w-6 rounded-full bg-[#1e1d17] border border-[#d4b06a]/40 text-[#f5dfa8] font-mono text-[11px] font-semibold flex items-center justify-center shadow-sm">
                     2
                   </span>
-                  <span>Client approves &amp; pays from wallet or cross-chain</span>
+                  <span>Client approves &amp; pays in Circle USDC or NEAR</span>
                 </div>
                 <ArrowRight className="w-3.5 h-3.5 text-[#5e5b51] hidden sm:block" />
                 <div className="flex items-center gap-2.5">
@@ -1348,231 +1380,397 @@ export default function NearVeilHomePage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <form
                   onSubmit={handleRunPrivatePayroll}
-                  className="lg:col-span-7 vault-card-glow-gold rounded-2xl p-6 space-y-5 relative overflow-hidden"
+                  className="lg:col-span-7 vault-card-glow-gold rounded-2xl p-6 space-y-6 relative overflow-hidden"
                 >
                   <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#e5be70]/60 to-transparent" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
-                        Company Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2e2d27] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a] focus:ring-1 focus:ring-[#d4b06a]/30 transition"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
-                        Pay Period
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={payPeriodLabel}
-                        onChange={(e) => setPayPeriodLabel(e.target.value)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2e2d27] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a] focus:ring-1 focus:ring-[#d4b06a]/30 transition"
-                      />
-                    </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
-                      Funding Currency (NEAR Testnet)
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['USDC', 'NEAR'] as const).map((sym) => (
+                  {/* Guided 3-Step Payroll Stepper */}
+                  <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-[#0e0e0c] border border-[#26251f]">
+                    {[
+                      { step: 1 as const, label: '1. Company', icon: Building2 },
+                      { step: 2 as const, label: `2. Members (${payrollRecipients.length})`, icon: Users },
+                      { step: 3 as const, label: '3. Review & Pay', icon: Lock },
+                    ].map((s) => {
+                      const StepIcon = s.icon;
+                      const isCurrent = payrollStep === s.step;
+                      const isDone = payrollStep > s.step;
+                      return (
                         <button
-                          key={sym}
+                          key={s.step}
                           type="button"
-                          onClick={() => setPayrollTokenSymbol(sym)}
-                          className={`px-3 py-2.5 rounded-xl border text-left transition cursor-pointer ${
-                            payrollTokenSymbol === sym
-                              ? 'bg-[#221f17] border-[#d4b06a]/60 text-[#f5ecd5]'
-                              : 'bg-[#0d0d0c] border-[#2e2d27] text-[#9c978b] hover:border-[#474337]'
+                          onClick={() => setPayrollStep(s.step)}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            isCurrent
+                              ? 'bg-[#221f17] text-[#f5ecd5] border border-[#d4b06a]/50 shadow-[0_0_14px_rgba(212,176,106,0.2)]'
+                              : isDone
+                                ? 'bg-[#131d16] text-[#a7f3d0] border border-[#34d399]/25 hover:border-[#34d399]/45'
+                                : 'text-[#8e8a7f] hover:text-[#f5f2eb] border border-transparent'
                           }`}
                         >
-                          <div className="flex items-center gap-1.5 text-xs font-semibold">
-                            <ChainDot chain="NEAR Testnet" />
-                            {sym === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
-                          </div>
-                          <div className="text-[10px] font-mono text-[#7c786e] mt-0.5">
-                            {sym === 'NEAR' ? 'Testnet Native' : 'Circle Native USDC'}
-                          </div>
+                          {isDone ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#34d399]" />
+                          ) : (
+                            <StepIcon className={`w-3.5 h-3.5 ${isCurrent ? 'text-[#e5be70]' : 'text-[#6d695f]'}`} />
+                          )}
+                          <span className="truncate">{s.label}</span>
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-[#a39f93]">
-                        Team Members ({payrollRecipients.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPayrollRecipients((prev) => [
-                            ...prev,
-                            {
-                              id: `rec-${Date.now()}`,
-                              contractorName: `Team Member #${prev.length + 1}`,
-                              roleOrDepartment: 'Engineering',
-                              referenceCode: `EMP-10${prev.length + 1}`,
-                              amountUsdc: 2500,
-                            },
-                          ])
-                        }
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#e2c17d] hover:text-[#fae8b8] transition cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add Person
-                      </button>
-                    </div>
+                  {/* STEP 1: COMPANY SETUP */}
+                  {payrollStep === 1 && (
+                    <div className="space-y-5">
+                      <div>
+                        <h3 className="text-lg font-serif text-[#f5f2eb]">Company &amp; Pay Cycle</h3>
+                        <p className="text-xs text-[#8e8a7f] mt-0.5">
+                          Set up your organization profile and choose the payout currency. Saved automatically.
+                        </p>
+                      </div>
 
-                    <div className="space-y-3">
-                      {payrollRecipients.map((rec, idx) => (
-                        <div
-                          key={rec.id}
-                          className="p-3.5 rounded-xl bg-[#11110f] border border-[#2c2b24] hover:border-[#d4b06a]/40 space-y-2.5 transition shadow-sm"
-                        >
-                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
-                            <input
-                              type="text"
-                              value={rec.contractorName}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setPayrollRecipients((prev) =>
-                                  prev.map((r, i) =>
-                                    i === idx ? { ...r, contractorName: val } : r
-                                  )
-                                );
-                              }}
-                              placeholder="Full Name"
-                              className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
-                            />
-                            <input
-                              type="text"
-                              value={rec.roleOrDepartment}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setPayrollRecipients((prev) =>
-                                  prev.map((r, i) =>
-                                    i === idx ? { ...r, roleOrDepartment: val } : r
-                                  )
-                                );
-                              }}
-                              placeholder="Role"
-                              className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f] focus:outline-none focus:border-[#d4b06a]"
-                            />
-                            <div className="sm:col-span-3 flex items-center gap-2">
-                              <div className="relative flex-1">
-                                <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
-                                  $
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={rec.amountUsdc}
-                                  onChange={(e) => {
-                                    const val = Math.max(1, Number(e.target.value));
-                                    setPayrollRecipients((prev) =>
-                                      prev.map((r, i) =>
-                                        i === idx ? { ...r, amountUsdc: val } : r
-                                      )
-                                    );
-                                  }}
-                                  className="w-full pl-7 pr-2.5 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums focus:outline-none focus:border-[#d4b06a]"
-                                />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
+                            Company Name
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={companyName}
+                            onChange={(e) => setCompanyName(e.target.value)}
+                            placeholder="e.g. Acme Web3 Studio"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2e2d27] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a] focus:ring-1 focus:ring-[#d4b06a]/30 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
+                            Pay Period Label
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={payPeriodLabel}
+                            onChange={(e) => setPayPeriodLabel(e.target.value)}
+                            placeholder="e.g. Nov 2026 · Bi-Weekly"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#0d0d0c] border border-[#2e2d27] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a] focus:ring-1 focus:ring-[#d4b06a]/30 transition"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-[#a39f93] mb-1.5">
+                          Funding Currency (NEAR Testnet)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {(['USDC', 'NEAR'] as const).map((sym) => (
+                            <button
+                              key={sym}
+                              type="button"
+                              onClick={() => setPayrollTokenSymbol(sym)}
+                              className={`px-4 py-3 rounded-xl border text-left transition cursor-pointer ${
+                                payrollTokenSymbol === sym
+                                  ? 'bg-[#221f17] border-[#d4b06a]/60 text-[#f5ecd5] shadow-[0_0_14px_rgba(212,176,106,0.18)]'
+                                  : 'bg-[#0d0d0c] border-[#2e2d27] text-[#9c978b] hover:border-[#474337]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 text-xs font-semibold">
+                                <ChainDot chain="NEAR Testnet" />
+                                {sym === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
                               </div>
-                              {payrollRecipients.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPayrollRecipients((prev) =>
-                                      prev.filter((r) => r.id !== rec.id)
+                              <div className="text-[10px] font-mono text-[#7c786e] mt-1">
+                                {sym === 'NEAR' ? 'Testnet Native Token' : 'Circle Native USDC'}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-[#2a2822] flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setPayrollStep(2)}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-xs shadow-[0_0_18px_rgba(212,176,106,0.3)] transition inline-flex items-center gap-2 cursor-pointer"
+                        >
+                          Continue to Team Members
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 2: TEAM MEMBERS ROSTER */}
+                  {payrollStep === 2 && (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-serif text-[#f5f2eb]">
+                            Team Members ({payrollRecipients.length})
+                          </h3>
+                          <p className="text-xs text-[#8e8a7f]">
+                            Add members and their Stealth Meta-Address. Roster saves automatically for future runs.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPayrollRecipients((prev) => [
+                              ...prev,
+                              {
+                                id: `rec-${Date.now()}`,
+                                contractorName: `Team Member #${prev.length + 1}`,
+                                roleOrDepartment: 'Engineering',
+                                referenceCode: `EMP-10${prev.length + 1}`,
+                                amountUsdc: 2500,
+                              },
+                            ])
+                          }
+                          className="px-3 py-1.5 rounded-xl bg-[#221f17] hover:bg-[#2c281d] border border-[#d4b06a]/40 inline-flex items-center gap-1.5 text-xs font-semibold text-[#f5dfa8] transition cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Member
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                        {payrollRecipients.map((rec, idx) => (
+                          <div
+                            key={rec.id}
+                            className="p-3.5 rounded-xl bg-[#11110f] border border-[#2c2b24] hover:border-[#d4b06a]/40 space-y-2.5 transition shadow-sm"
+                          >
+                            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                              <input
+                                type="text"
+                                value={rec.contractorName}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPayrollRecipients((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, contractorName: val } : r
                                     )
-                                  }
-                                  title="Remove member"
-                                  className="p-2 rounded-lg text-[#6d695f] hover:text-[#f87171] hover:bg-[#2b1717] transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
+                                  );
+                                }}
+                                placeholder="Full Name"
+                                className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#f5f2eb] focus:outline-none focus:border-[#d4b06a]"
+                              />
+                              <input
+                                type="text"
+                                value={rec.roleOrDepartment}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPayrollRecipients((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, roleOrDepartment: val } : r
+                                    )
+                                  );
+                                }}
+                                placeholder="Role"
+                                className="sm:col-span-4 px-3 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm text-[#8e8a7f] focus:outline-none focus:border-[#d4b06a]"
+                              />
+                              <div className="sm:col-span-3 flex items-center gap-2">
+                                <div className="relative flex-1">
+                                  <span className="absolute left-3 top-2 text-sm text-[#6d695f]">
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={rec.amountUsdc}
+                                    onChange={(e) => {
+                                      const val = Math.max(1, Number(e.target.value));
+                                      setPayrollRecipients((prev) =>
+                                        prev.map((r, i) =>
+                                          i === idx ? { ...r, amountUsdc: val } : r
+                                        )
+                                      );
+                                    }}
+                                    className="w-full pl-7 pr-2.5 py-2 rounded-lg bg-[#181815] border border-[#2c2b26] text-sm font-semibold text-[#f5f2eb] tabular-nums focus:outline-none focus:border-[#d4b06a]"
+                                  />
+                                </div>
+                                {payrollRecipients.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPayrollRecipients((prev) =>
+                                        prev.filter((r) => r.id !== rec.id)
+                                      )
+                                    }
+                                    title="Remove member"
+                                    className="p-2 rounded-lg text-[#6d695f] hover:text-[#f87171] hover:bg-[#2b1717] transition cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={rec.stealthMetaAddress || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setPayrollRecipients((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, stealthMetaAddress: val } : r
+                                    )
+                                  );
+                                }}
+                                placeholder="Employee Stealth Meta-Address (nv_meta_... — optional, auto-derived if blank)"
+                                className="flex-1 px-3 py-1.5 rounded-lg bg-[#0d0d0c] border border-[#262520] text-xs font-mono text-[#e2c17d] placeholder:text-[#57544c] focus:outline-none focus:border-[#d4b06a]"
+                              />
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const meta = await deriveClientStealthMeta(
+                                    rec.referenceCode || rec.contractorName || rec.id
+                                  );
+                                  setPayrollRecipients((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, stealthMetaAddress: meta } : r
+                                    )
+                                  );
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg bg-[#1c1b16] hover:bg-[#27251e] border border-[#d4b06a]/30 text-[11px] font-mono text-[#f5dfa8] cursor-pointer shrink-0 transition"
+                              >
+                                Auto-Fill
+                              </button>
                             </div>
                           </div>
+                        ))}
+                      </div>
 
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={rec.stealthMetaAddress || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setPayrollRecipients((prev) =>
-                                  prev.map((r, i) =>
-                                    i === idx ? { ...r, stealthMetaAddress: val } : r
-                                  )
-                                );
-                              }}
-                              placeholder="Employee Stealth Meta-Address (nv_meta_... — optional, auto-derived if blank)"
-                              className="flex-1 px-3 py-1.5 rounded-lg bg-[#0d0d0c] border border-[#262520] text-xs font-mono text-[#e2c17d] placeholder:text-[#57544c] focus:outline-none focus:border-[#d4b06a]"
-                            />
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const meta = await deriveClientStealthMeta(
-                                  rec.referenceCode || rec.contractorName || rec.id
-                                );
-                                setPayrollRecipients((prev) =>
-                                  prev.map((r, i) =>
-                                    i === idx ? { ...r, stealthMetaAddress: meta } : r
-                                  )
-                                );
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-[#1c1b16] hover:bg-[#27251e] border border-[#d4b06a]/30 text-[11px] font-mono text-[#f5dfa8] cursor-pointer shrink-0 transition"
-                            >
-                              Auto-Fill
-                            </button>
+                      <div className="pt-4 border-t border-[#2a2822] flex flex-wrap items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPayrollStep(1)}
+                          className="px-4 py-2.5 rounded-xl bg-[#161613] hover:bg-[#1e1d19] border border-[#2e2d26] text-xs font-medium text-[#b5b0a4] transition cursor-pointer"
+                        >
+                          ← Back to Company
+                        </button>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-mono text-[#8e8a7f]">
+                            Pool: <strong className="text-[#f5ecd5]">${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setPayrollStep(3)}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-xs shadow-[0_0_18px_rgba(212,176,106,0.3)] transition inline-flex items-center gap-2 cursor-pointer"
+                          >
+                            Review &amp; Pay
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 3: REVIEW & PAY PRIVATELY */}
+                  {payrollStep === 3 && (
+                    <div className="space-y-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-lg font-serif text-[#f5f2eb]">
+                            Review &amp; Disburse Payroll
+                          </h3>
+                          <p className="text-xs text-[#8e8a7f]">
+                            1 pooled deposit splits automatically into {payrollRecipients.length} unlinkable stealth payouts.
+                          </p>
+                        </div>
+                        <span className="badge-emerald-glow px-2.5 py-1 rounded-full text-[10px] font-mono">
+                          Zero-Claim Auto-Deposit
+                        </span>
+                      </div>
+
+                      {/* Company & Currency Summary Box */}
+                      <div className="p-4 rounded-xl bg-[#11110e] border border-[#2c2b24] grid grid-cols-3 gap-4 text-xs">
+                        <div>
+                          <div className="text-[10px] font-mono uppercase text-[#7c786e]">Company</div>
+                          <div className="font-semibold text-[#f5f2eb] mt-0.5 truncate">{companyName}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-mono uppercase text-[#7c786e]">Pay Period</div>
+                          <div className="font-semibold text-[#f5f2eb] mt-0.5 truncate">{payPeriodLabel}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-mono uppercase text-[#7c786e]">Asset</div>
+                          <div className="font-semibold text-[#e5be70] mt-0.5">
+                            {payrollTokenSymbol === 'USDC' ? 'Circle USDC' : 'Native NEAR'}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-[#2a2822] flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <div className="text-xs text-[#8e8a7f] uppercase tracking-wider font-mono">Total Payroll Run</div>
-                      <div className="text-4xl font-serif text-gradient-gold tabular-nums mt-1">
-                        ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
-                        <span className="text-sm font-sans text-[#8e8a7f] font-normal">USDC</span>
                       </div>
-                      {isConnected && (
-                        <div className="text-[11px] text-[#8e8a7f] mt-1 font-mono">
-                          Wallet balance:{' '}
-                          <span className="text-[#f5f2eb] font-semibold">
-                            ${walletUsdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
-                          </span>{' '}
-                          ·{' '}
-                          <span className="text-[#34d399]">
-                            {walletNearBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} NEAR
-                          </span>
-                        </div>
-                      )}
-                    </div>
 
-                    <button
-                      type="submit"
-                      disabled={busyKey === 'run_payroll'}
-                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-sm shadow-[0_0_24px_rgba(212,176,106,0.35)] hover:shadow-[0_0_30px_rgba(212,176,106,0.5)] transition flex items-center gap-2 cursor-pointer"
-                    >
-                      <Lock className="w-4 h-4" />
-                      {busyKey === 'run_payroll'
-                        ? 'Auto-Disbursing Payroll...'
-                        : 'Pay Team Privately (Auto-Disburse)'}
-                    </button>
-                  </div>
+                      {/* Recipient Breakdown Table */}
+                      <div className="rounded-xl bg-[#0e0e0c] border border-[#26251f] divide-y divide-[#1e1d18] max-h-52 overflow-y-auto">
+                        {payrollRecipients.map((rec) => (
+                          <div
+                            key={rec.id}
+                            className="px-4 py-2.5 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium text-[#f5f2eb] truncate">
+                                {rec.contractorName}
+                              </div>
+                              <div className="text-[11px] text-[#7c786e] truncate">
+                                {rec.roleOrDepartment} ·{' '}
+                                <span className="font-mono text-[#9c978b]">
+                                  {rec.stealthMetaAddress
+                                    ? `${rec.stealthMetaAddress.slice(0, 14)}...`
+                                    : 'Auto-derived stealth key'}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="font-mono font-semibold text-[#f5ecd5] tabular-nums shrink-0">
+                              ${rec.amountUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-4 border-t border-[#2a2822] flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <div className="text-xs text-[#8e8a7f] uppercase tracking-wider font-mono">
+                            Total Pooled Deposit
+                          </div>
+                          <div className="text-3xl sm:text-4xl font-serif text-gradient-gold tabular-nums mt-0.5">
+                            ${payrollTotalUsdc.toLocaleString('en-US', { minimumFractionDigits: 2 })}{' '}
+                            <span className="text-sm font-sans text-[#8e8a7f] font-normal">USDC</span>
+                          </div>
+                          {isConnected && (
+                            <div className="text-[11px] text-[#8e8a7f] mt-1 font-mono">
+                              Wallet:{' '}
+                              <span className="text-[#f5f2eb] font-semibold">
+                                ${walletUsdcBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC
+                              </span>{' '}
+                              ·{' '}
+                              <span className="text-[#34d399]">
+                                {walletNearBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} NEAR
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setPayrollStep(2)}
+                            className="px-4 py-3 rounded-xl bg-[#161613] hover:bg-[#1e1d19] border border-[#2e2d26] text-xs font-medium text-[#b5b0a4] transition cursor-pointer"
+                          >
+                            ← Edit Members
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={busyKey === 'run_payroll'}
+                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#f3d99d] via-[#d4b06a] to-[#b38531] hover:from-[#fae8b8] hover:to-[#c6973f] text-[#0a0a09] font-bold text-sm shadow-[0_0_24px_rgba(212,176,106,0.35)] hover:shadow-[0_0_30px_rgba(212,176,106,0.5)] transition flex items-center gap-2 cursor-pointer"
+                          >
+                            <Lock className="w-4 h-4" />
+                            {busyKey === 'run_payroll'
+                              ? 'Disbursing Payroll...'
+                              : 'Confirm & Pay Privately'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </form>
 
                 {/* Completed Payroll Runs & Employee Claim Cards */}
@@ -2728,7 +2926,7 @@ export default function NearVeilHomePage() {
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-[#a39f93] leading-relaxed">
-                Send this private payment link to <strong className="text-[#f5f2eb]">{newlyCreatedInvoice.clientName}</strong>. They can open it to pay you directly from their wallet on any chain:
+                Send this private payment link to <strong className="text-[#f5f2eb]">{newlyCreatedInvoice.clientName}</strong>. They can open it to pay you directly from their NEAR wallet in Circle USDC or NEAR:
               </p>
 
               <div className="p-3.5 rounded-xl bg-[#0c0c0b] border border-[#2d2b24] space-y-2">
